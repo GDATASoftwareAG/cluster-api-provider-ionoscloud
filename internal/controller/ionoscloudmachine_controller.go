@@ -17,20 +17,15 @@ limitations under the License.
 package controller
 
 import (
-	"context"
-
-	"k8s.io/apimachinery/pkg/runtime"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-
+	goctx "context"
 	infrastructurev1alpha1 "github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/api/v1alpha1"
+	"github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/pkg/context"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // IONOSCloudMachineReconciler reconciles a IONOSCloudMachine object
 type IONOSCloudMachineReconciler struct {
-	client.Client
-	Scheme *runtime.Scheme
+	*context.ControllerContext
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=ionoscloudmachines,verbs=get;list;watch;create;update;patch;delete
@@ -46,11 +41,9 @@ type IONOSCloudMachineReconciler struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.15.0/pkg/reconcile
-func (r *IONOSCloudMachineReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+func (r *IONOSCloudMachineReconciler) Reconcile(ctx goctx.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 
-	// TODO(user): your logic here
-
+	// Handle non-deleted clusters
 	return ctrl.Result{}, nil
 }
 
