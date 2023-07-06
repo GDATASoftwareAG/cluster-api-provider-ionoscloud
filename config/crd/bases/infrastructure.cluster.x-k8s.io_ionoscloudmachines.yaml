@@ -34,13 +34,44 @@ spec:
           spec:
             description: IONOSCloudMachineSpec defines the desired state of IONOSCloudMachine
             properties:
-              foo:
-                description: Foo is an example field of IONOSCloudMachine. Edit ionoscloudmachine_types.go
-                  to remove/update
+              bootVolume:
+                properties:
+                  image:
+                    type: string
+                  size:
+                    type: integer
+                  type:
+                    type: string
+                required:
+                - image
+                - size
+                - type
+                type: object
+              cores:
+                type: integer
+              datacenterID:
                 type: string
+              lan:
+                type: string
+              providerID:
+                type: string
+              ram:
+                type: integer
+            required:
+            - bootVolume
+            - cores
+            - datacenterID
+            - lan
+            - providerID
+            - ram
             type: object
           status:
             description: IONOSCloudMachineStatus defines the observed state of IONOSCloudMachine
+            properties:
+              ready:
+                type: boolean
+            required:
+            - ready
             type: object
         type: object
     served: true

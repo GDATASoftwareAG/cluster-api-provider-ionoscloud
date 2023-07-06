@@ -18,40 +18,36 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/cluster-api/api/v1beta1"
 )
 
-// IONOSCloudClusterSpec defines the desired state of IONOSCloudCluster
-type IONOSCloudClusterSpec struct {
-	ControlPlaneEndpoint v1beta1.APIEndpoint `json:"controlPlaneEndpoint,omitempty"`
+// IONOSCloudMachineTemplateSpec defines the desired state of IONOSCloudMachineTemplate
+type IONOSCloudMachineTemplateSpec struct {
+	Template IONOSCloudMachineTemplateResource `json:"template"`
 }
 
-// IONOSCloudClusterStatus defines the observed state of IONOSCloudCluster
-type IONOSCloudClusterStatus struct {
-	Ready string `json:"ready"`
+type IONOSCloudMachineTemplateResource struct {
+	Template IONOSCloudMachineSpec `json:"template"`
 }
 
 //+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
 
-// IONOSCloudCluster is the Schema for the ionoscloudclusters API
-type IONOSCloudCluster struct {
+// IONOSCloudMachineTemplate is the Schema for the ionoscloudmachinetemplates API
+type IONOSCloudMachineTemplate struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   IONOSCloudClusterSpec   `json:"spec,omitempty"`
-	Status IONOSCloudClusterStatus `json:"status,omitempty"`
+	Spec IONOSCloudMachineTemplateSpec `json:"spec,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// IONOSCloudClusterList contains a list of IONOSCloudCluster
-type IONOSCloudClusterList struct {
+// IONOSCloudMachineTemplateList contains a list of IONOSCloudMachineTemplate
+type IONOSCloudMachineTemplateList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []IONOSCloudCluster `json:"items"`
+	Items           []IONOSCloudMachineTemplate `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&IONOSCloudCluster{}, &IONOSCloudClusterList{})
+	SchemeBuilder.Register(&IONOSCloudMachineTemplate{}, &IONOSCloudMachineTemplateList{})
 }

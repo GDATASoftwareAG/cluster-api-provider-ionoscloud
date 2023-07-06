@@ -34,13 +34,28 @@ spec:
           spec:
             description: IONOSCloudClusterSpec defines the desired state of IONOSCloudCluster
             properties:
-              foo:
-                description: Foo is an example field of IONOSCloudCluster. Edit ionoscloudcluster_types.go
-                  to remove/update
-                type: string
+              controlPlaneEndpoint:
+                description: APIEndpoint represents a reachable Kubernetes API endpoint.
+                properties:
+                  host:
+                    description: The hostname on which the API server is serving.
+                    type: string
+                  port:
+                    description: The port on which the API server is serving.
+                    format: int32
+                    type: integer
+                required:
+                - host
+                - port
+                type: object
             type: object
           status:
             description: IONOSCloudClusterStatus defines the observed state of IONOSCloudCluster
+            properties:
+              ready:
+                type: string
+            required:
+            - ready
             type: object
         type: object
     served: true
