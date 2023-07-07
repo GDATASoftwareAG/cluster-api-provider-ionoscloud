@@ -92,14 +92,22 @@ func main() {
 		os.Exit(1)
 	}
 
+	usr := os.Getenv("IONOS_USERNAME")
+	pwd := os.Getenv("IONOS_PASSWORD")
+
+	if len(usr) == 0 || len(pwd) == 0 {
+		setupLog.Error(err, "ionos credentials are required")
+		os.Exit(1)
+	}
+
 	if err = (&controller.IONOSCloudClusterReconciler{
 		ControllerContext: &context.ControllerContext{
 			Context:  goctx.Background(),
 			Client:   mgr.GetClient(),
 			Scheme:   mgr.GetScheme(),
 			Logger:   logr.Logger{},
-			Username: "",
-			Password: "",
+			Username: usr,
+			Password: pwd,
 		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "IONOSCloudCluster")
@@ -111,8 +119,8 @@ func main() {
 			Client:   mgr.GetClient(),
 			Scheme:   mgr.GetScheme(),
 			Logger:   logr.Logger{},
-			Username: "",
-			Password: "",
+			Username: usr,
+			Password: pwd,
 		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "IONOSCloudMachine")

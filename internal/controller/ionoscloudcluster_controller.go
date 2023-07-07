@@ -27,6 +27,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	clusterutilv1 "sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/patch"
+	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -146,5 +147,6 @@ func setOwnerRefsOnIONOSCloudMachines(ctx *context.ClusterContext) error {
 func (r *IONOSCloudClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&infrastructurev1alpha1.IONOSCloudCluster{}).
+		WithEventFilter(predicates.ResourceIsNotExternallyManaged(r.Logger)).
 		Complete(r)
 }

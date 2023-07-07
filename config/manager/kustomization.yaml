@@ -1,2 +1,7 @@
 resources:
+- ionos-credentials.yaml
 - manager.yaml
+
+
+
+#https://github.com/kubernetes-sigs/kustomize/issues/4884

@@ -20,6 +20,7 @@ import (
 	goctx "context"
 	infrastructurev1alpha1 "github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/api/v1alpha1"
 	"github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/pkg/context"
+	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -51,5 +52,6 @@ func (r *IONOSCloudMachineReconciler) Reconcile(ctx goctx.Context, req ctrl.Requ
 func (r *IONOSCloudMachineReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&infrastructurev1alpha1.IONOSCloudMachine{}).
+		WithEventFilter(predicates.ResourceIsNotExternallyManaged(r.Logger)).
 		Complete(r)
 }
