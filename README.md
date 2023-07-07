@@ -1,80 +1,44 @@
 # cluster-api-provider-ionoscloud
-// TODO(user): Add simple overview of use/purpose
+Kubernetes-native declarative infrastructure for [IONOS Cloud](ionos_cloud).
 
-## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+## What is the Cluster API Provider IONOS Cloud
 
-## Getting Started
-You’ll need a Kubernetes cluster to run against. You can use [KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run against a remote cluster.
-**Note:** Your controller will automatically use the current context in your kubeconfig file (i.e. whatever cluster `kubectl cluster-info` shows).
+The [Cluster API][cluster_api] brings declarative, Kubernetes-style APIs to cluster creation, configuration and management. Cluster API Provider for IONOS Cloud is a concrete implementation of Cluster API for IONOS Cloud.
 
-### Running on the cluster
-1. Install Instances of Custom Resources:
+The API itself is shared across multiple cloud providers allowing for IONOS Cloud deployments of Kubernetes. It is built atop the lessons learned from previous cluster managers such as [kops][kops] and [kubicorn][kubicorn].
 
-```sh
-kubectl apply -f config/samples/
-```
+## Launching a Kubernetes cluster on IONOS Cloud
 
-2. Build and push your image to the location specified by `IMG`:
+...
 
-```sh
-make docker-build docker-push IMG=<some-registry>/cluster-api-provider-ionoscloud:tag
-```
+## Features
 
-3. Deploy the controller to the cluster with the image specified by `IMG`:
+* Native Kubernetes manifests and API
+* Manages the bootstrapping of Servers on cluster.
+* Choice of Linux distribution between Ubuntu 22.04 and other cloud init distribution using Server Templates based on raw images from [image builder](image_builder).
+* Using cloud init for bootstrapping nodes.
+* Installs only the minimal components to bootstrap a control plane and workers.
 
-```sh
-make deploy IMG=<some-registry>/cluster-api-provider-ionoscloud:tag
-```
+# Roadmap
 
-### Uninstall CRDs
-To delete the CRDs from the cluster:
+* full ipv6 cluster
+* dual stack mode (ipv4 and ipv6)
+* private cluster
+* managed kubernetes
+* failuredomains for control planes
+* failuredomains for machinedeployment
+* autoscaler integrations example
+* multi lan (private and public lan)
 
-```sh
-make uninstall
-```
+---
 
-### Undeploy controller
-UnDeploy the controller from the cluster:
+## Compatibility with Cluster API
 
-```sh
-make undeploy
-```
+|                       | Cluster API v1beta1 (v1.5) |
+| :-------------------: | :------------------------: |
+| CAPIC v1alpha1 (v0.1) |             ✓              |
 
-## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
 
-### How it works
-This project aims to follow the Kubernetes [Operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/).
-
-It uses [Controllers](https://kubernetes.io/docs/concepts/architecture/controller/),
-which provide a reconcile function responsible for synchronizing resources until the desired state is reached on the cluster.
-
-### Test It Out
-1. Install the CRDs into the cluster:
-
-```sh
-make install
-```
-
-2. Run your controller (this will run in the foreground, so switch to a new terminal if you want to leave it running):
-
-```sh
-make run
-```
-
-**NOTE:** You can also run this in one step by running: `make install run`
-
-### Modifying the API definitions
-If you are editing the API definitions, generate the manifests such as CRs or CRDs using:
-
-```sh
-make manifests
-```
-
-**NOTE:** Run `make --help` for more information on all potential `make` targets
-
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
 
 ## License
 
@@ -92,3 +56,9 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
+<!-- References -->
+[cluster_api]: https://github.com/kubernetes-sigs/cluster-api
+[kops]: https://github.com/kubernetes/kops
+[kubicorn]: http://kubicorn.io/
+[image_builder]: https://github.com/kubernetes-sigs/image-builder/
+[ionos_cloud]: https://ionos.cloud
