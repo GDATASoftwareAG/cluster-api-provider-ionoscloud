@@ -2,5 +2,5 @@ name: ionoscloud
 config:
   image: controller:latest # change to remote image name if desired
   label: CAPIC
-  live_reload_deps: ["main.go", "go.mod", "go.sum", "api", "internal", "pkg"]
+  live_reload_deps: ["main.go", "go.mod", "go.sum", "api", "internal", "pkg", "cmd"]
   go_main: "./cmd"

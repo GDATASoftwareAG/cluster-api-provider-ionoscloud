@@ -1,0 +1,13 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+kind: IONOSCloudMachineTemplate
+metadata:
+  name: ionoscloudcluster-control-plane
+spec:
+  template:
+    spec:
+      cores: 2
+      ram: 4096
+      bootVolume:
+        image: "a9152e16-2482-11ee-9eb0-82cf6aa9b8c3"
+        type: "HDD"
+        size: "25"

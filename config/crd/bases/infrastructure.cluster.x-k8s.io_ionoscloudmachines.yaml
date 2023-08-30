@@ -34,12 +34,24 @@ spec:
           spec:
             description: IONOSCloudMachineSpec defines the desired state of IONOSCloudMachine
             properties:
+              availabilityZone:
+                description: The availability zone in which the server should be provisioned.
+                type: string
               bootVolume:
                 properties:
                   image:
                     type: string
                   size:
-                    type: integer
+                    type: string
+                  sshKeys:
+                    description: Public SSH keys are set on the image as authorized
+                      keys for appropriate SSH login to the instance using the corresponding
+                      private key. This field may only be set in creation requests.
+                      When reading, it always returns null. SSH keys are only supported
+                      if a public Linux image is used for the volume creation.
+                    items:
+                      type: string
+                    type: array
                   type:
                     type: string
                 required:
@@ -48,30 +60,94 @@ spec:
                 - type
                 type: object
               cores:
+                description: The total number of cores for the enterprise server.
+                format: int32
                 type: integer
-              datacenterID:
+              cpuFamily:
+                description: CPU architecture on which server gets provisioned; not
+                  all CPU architectures are available in all datacenter regions; available
+                  CPU architectures can be retrieved from the datacenter resource;
+                  must not be provided for CUBE servers.
                 type: string
-              lan:
+              ip:
+                description: primary ip of the virtual machine.
+                type: string
+              name:
+                description: The name of the  resource.
+                type: string
+              networkInterfaceID:
+                type: string
+              placementGroupId:
+                description: The placement group ID that belongs to this server; Requires
+                  system privileges
                 type: string
               providerID:
                 type: string
               ram:
+                description: The memory size for the enterprise server in MB, such
+                  as 2048. Size must be specified in multiples of 256 MB with a minimum
+                  of 256 MB; however, if you set ramHotPlug to TRUE then you must
+                  use a minimum of 1024 MB. If you set the RAM size more than 240GB,
+                  then ramHotPlug will be set to FALSE and can not be set to TRUE
+                  unless RAM size not set to less than 240GB.
+                format: int32
                 type: integer
+              volumeID:
+                type: string
             required:
             - bootVolume
-            - cores
-            - datacenterID
-            - lan
-            - providerID
-            - ram
             type: object
           status:
             description: IONOSCloudMachineStatus defines the observed state of IONOSCloudMachine
             properties:
+              conditions:
+                description: Conditions defines current service state of the IONOSCloudCluster.
+                items:
+                  description: Condition defines an observation of a Cluster API resource
+                    operational state.
+                  properties:
+                    lastTransitionTime:
+                      description: Last time the condition transitioned from one status
+                        to another. This should be when the underlying condition changed.
+                        If that is not known, then using the time when the API field
+                        changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: A human readable message indicating details about
+                        the transition. This field may be empty.
+                      type: string
+                    reason:
+                      description: The reason for the condition's last transition
+                        in CamelCase. The specific API may choose whether or not this
+                        field is considered a guaranteed API. This field may not be
+                        empty.
+                      type: string
+                    severity:
+                      description: Severity provides an explicit classification of
+                        Reason code, so the users or machines can immediately understand
+                        the current situation and act accordingly. The Severity field
+                        MUST be set only when Status=False.
+                      type: string
+                    status:
+                      description: Status of the condition, one of True, False, Unknown.
+                      type: string
+                    type:
+                      description: Type of condition in CamelCase or in foo.example.com/CamelCase.
+                        Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important.
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - status
+                  - type
+                  type: object
+                type: array
               ready:
+                description: Ready is true when the provider resource is ready.
                 type: boolean
-            required:
-            - ready
             type: object
         type: object
     served: true

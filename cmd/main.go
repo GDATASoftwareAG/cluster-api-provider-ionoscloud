@@ -19,8 +19,8 @@ package main
 import (
 	goctx "context"
 	"flag"
-	"github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/pkg/context"
-	"github.com/go-logr/logr"
+	"github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/internal/context"
+	"github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/internal/ionos"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -34,6 +34,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+
 	infrastructurev1alpha1 "github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/api/v1alpha1"
 	"github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/internal/controller"
 	//+kubebuilder:scaffold:imports
@@ -46,7 +48,7 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-
+	utilruntime.Must(clusterv1.AddToScheme(scheme))
 	utilruntime.Must(infrastructurev1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
@@ -94,12 +96,11 @@ func main() {
 
 	if err = (&controller.IONOSCloudClusterReconciler{
 		ControllerContext: &context.ControllerContext{
-			Context:  goctx.Background(),
-			Client:   mgr.GetClient(),
-			Scheme:   mgr.GetScheme(),
-			Logger:   logr.Logger{},
-			Username: "",
-			Password: "",
+			Context:            goctx.Background(),
+			K8sClient:          mgr.GetClient(),
+			Scheme:             mgr.GetScheme(),
+			Logger:             ctrl.Log.WithName("IONOSCloudClusterReconciler"),
+			IONOSClientFactory: ionos.NewClientFactory(ionos.NewAPIClient),
 		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "IONOSCloudCluster")
@@ -107,15 +108,35 @@ func main() {
 	}
 	if err = (&controller.IONOSCloudMachineReconciler{
 		ControllerContext: &context.ControllerContext{
-			Context:  goctx.Background(),
-			Client:   mgr.GetClient(),
-			Scheme:   mgr.GetScheme(),
-			Logger:   logr.Logger{},
-			Username: "",
-			Password: "",
+			Context:            goctx.Background(),
+			K8sClient:          mgr.GetClient(),
+			Scheme:             mgr.GetScheme(),
+			Logger:             ctrl.Log.WithName("IONOSCloudMachineReconciler"),
+			IONOSClientFactory: ionos.NewClientFactory(ionos.NewAPIClient),
 		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "IONOSCloudMachine")
+		os.Exit(1)
+	}
+
+	if err = (&infrastructurev1alpha1.IONOSCloudCluster{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "IONOSCloudCluster")
+		os.Exit(1)
+	}
+	if err = (&infrastructurev1alpha1.IONOSCloudMachine{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "IONOSCloudMachine")
+		os.Exit(1)
+	}
+	if err = (&controller.IONOSCloudClusterIdentityReconciler{
+		ControllerContext: &context.ControllerContext{
+			Context:            goctx.Background(),
+			K8sClient:          mgr.GetClient(),
+			Scheme:             mgr.GetScheme(),
+			Logger:             ctrl.Log.WithName("IONOSCloudClusterIdentityReconciler"),
+			IONOSClientFactory: ionos.NewClientFactory(ionos.NewAPIClient),
+		},
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "IONOSCloudClusterIdentity")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

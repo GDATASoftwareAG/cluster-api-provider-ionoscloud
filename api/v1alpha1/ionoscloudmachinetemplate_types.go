@@ -26,7 +26,7 @@ type IONOSCloudMachineTemplateSpec struct {
 }
 
 type IONOSCloudMachineTemplateResource struct {
-	Template IONOSCloudMachineSpec `json:"template"`
+	Spec IONOSCloudMachineSpec `json:"spec"`
 }
 
 //+kubebuilder:object:root=true

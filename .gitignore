@@ -24,3 +24,6 @@ Dockerfile.cross
 *.swp
 *.swo
 *~
+/.env
+/.tiltbuild/bin/*
+/config/samples/csi-ionos/

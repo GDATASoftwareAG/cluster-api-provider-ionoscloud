@@ -14,11 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controller
+package controller_test
 
 import (
+	goctx "context"
+	"github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/internal/ionos"
+	fakes "github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/testing"
 	"path/filepath"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/cluster-api/api/v1beta1"
+	ctrl "sigs.k8s.io/controller-runtime"
+
+	"github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/internal/controller"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -31,15 +40,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	infrastructurev1alpha1 "github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/api/v1alpha1"
+
+	"github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/internal/context"
 	//+kubebuilder:scaffold:imports
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
-var cfg *rest.Config
-var k8sClient client.Client
-var testEnv *envtest.Environment
+var (
+	cfg         *rest.Config
+	k8sClient   client.Client
+	testEnv     *envtest.Environment
+	ctx         goctx.Context
+	cancel      goctx.CancelFunc
+	FakeClients = map[string]*fakes.FakeClient{}
+)
 
 func TestControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -50,9 +66,14 @@ func TestControllers(t *testing.T) {
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
+	ctx, cancel = goctx.WithCancel(goctx.TODO())
+
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "config", "crd", "bases"),
+			filepath.Join("..", "..", "config", "crd", "external"),
+		},
 		ErrorIfCRDPathMissing: true,
 	}
 
@@ -62,6 +83,15 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
+	requiredSchemes := []func(s *runtime.Scheme) error{
+		v1beta1.AddToScheme,
+		infrastructurev1alpha1.AddToScheme,
+	}
+
+	for _, requiredScheme := range requiredSchemes {
+		err = requiredScheme(scheme.Scheme)
+		Expect(err).NotTo(HaveOccurred())
+	}
 	err = infrastructurev1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -71,9 +101,59 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
+	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
+		Scheme: scheme.Scheme,
+	})
+	Expect(err).ToNot(HaveOccurred())
+
+	err = (&controller.IONOSCloudMachineReconciler{
+		ControllerContext: &context.ControllerContext{
+			Context:            goctx.Background(),
+			K8sClient:          k8sManager.GetClient(),
+			Scheme:             k8sManager.GetScheme(),
+			IONOSClientFactory: ionos.NewClientFactory(NewFakeAPIClient),
+		}}).SetupWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
+
+	err = (&controller.IONOSCloudClusterReconciler{
+		ControllerContext: &context.ControllerContext{
+			Context:            goctx.Background(),
+			K8sClient:          k8sManager.GetClient(),
+			Scheme:             k8sManager.GetScheme(),
+			IONOSClientFactory: ionos.NewClientFactory(NewFakeAPIClient),
+		}}).SetupWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
+
+	err = (&controller.IONOSCloudClusterIdentityReconciler{
+		ControllerContext: &context.ControllerContext{
+			Context:            goctx.Background(),
+			K8sClient:          k8sManager.GetClient(),
+			Scheme:             k8sManager.GetScheme(),
+			IONOSClientFactory: ionos.NewClientFactory(NewFakeAPIClient),
+		}}).SetupWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
+
+	go func() {
+		defer GinkgoRecover()
+		err = k8sManager.Start(ctx)
+		Expect(err).ToNot(HaveOccurred(), "failed to run manager")
+	}()
+
 })
 
+func GetFakeClient(key string) *fakes.FakeClient {
+	if _, ok := FakeClients[key]; !ok {
+		FakeClients[key] = fakes.NewFakeClient()
+	}
+	return FakeClients[key]
+}
+
+func NewFakeAPIClient(_, _, _, host string) ionos.IONOSClient {
+	return GetFakeClient(host)
+}
+
 var _ = AfterSuite(func() {
+	cancel()
 	By("tearing down the test environment")
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())

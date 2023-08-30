@@ -3,18 +3,20 @@ package context
 import (
 	"fmt"
 	"github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/api/v1alpha1"
+	"github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/internal/ionos"
 	"github.com/go-logr/logr"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/util/patch"
 )
 
-// ClusterContext is a Go context used with a VSphereCluster.
+// ClusterContext is a Go context used with a IONOSCloudCluster.
 type ClusterContext struct {
 	*ControllerContext
 	Cluster           *clusterv1.Cluster
 	IONOSCloudCluster *v1alpha1.IONOSCloudCluster
 	PatchHelper       *patch.Helper
 	Logger            logr.Logger
+	IONOSClient       ionos.IONOSClient
 }
 
 // String returns IONOSCloudClusterGroupVersionKind IONOSCloudClusterNamespace/IONOSCloudClusterName.

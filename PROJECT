@@ -17,6 +17,9 @@ resources:
   kind: IONOSCloudCluster
   path: github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/api/v1alpha1
   version: v1alpha1
+  webhooks:
+    validation: true
+    webhookVersion: v1
 - api:
     crdVersion: v1
     namespaced: true
@@ -26,6 +29,9 @@ resources:
   kind: IONOSCloudMachine
   path: github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/api/v1alpha1
   version: v1alpha1
+  webhooks:
+    validation: true
+    webhookVersion: v1
 - api:
     crdVersion: v1
     namespaced: true
@@ -40,6 +46,15 @@ resources:
   domain: cluster.x-k8s.io
   group: infrastructure
   kind: IONOSCloudMachineTemplate
+  path: github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: cluster.x-k8s.io
+  group: infrastructure
+  kind: IONOSCloudClusterIdentity
   path: github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/api/v1alpha1
   version: v1alpha1
 version: "3"

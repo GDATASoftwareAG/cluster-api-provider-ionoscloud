@@ -1,0 +1,10 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+kind: IONOSCloudCluster
+metadata:
+  name: ionoscloudcluster
+spec:
+  location: "de/txl"
+  identityName: sample
+  controlPlaneEndpoint:
+    host: "85.215.201.63"
+    port: 6443

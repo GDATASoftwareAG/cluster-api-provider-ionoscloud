@@ -38,16 +38,30 @@ spec:
             properties:
               template:
                 properties:
-                  template:
+                  spec:
                     description: IONOSCloudMachineSpec defines the desired state of
                       IONOSCloudMachine
                     properties:
+                      availabilityZone:
+                        description: The availability zone in which the server should
+                          be provisioned.
+                        type: string
                       bootVolume:
                         properties:
                           image:
                             type: string
                           size:
-                            type: integer
+                            type: string
+                          sshKeys:
+                            description: Public SSH keys are set on the image as authorized
+                              keys for appropriate SSH login to the instance using
+                              the corresponding private key. This field may only be
+                              set in creation requests. When reading, it always returns
+                              null. SSH keys are only supported if a public Linux
+                              image is used for the volume creation.
+                            items:
+                              type: string
+                            type: array
                           type:
                             type: string
                         required:
@@ -56,25 +70,47 @@ spec:
                         - type
                         type: object
                       cores:
+                        description: The total number of cores for the enterprise
+                          server.
+                        format: int32
                         type: integer
-                      datacenterID:
+                      cpuFamily:
+                        description: CPU architecture on which server gets provisioned;
+                          not all CPU architectures are available in all datacenter
+                          regions; available CPU architectures can be retrieved from
+                          the datacenter resource; must not be provided for CUBE servers.
                         type: string
-                      lan:
+                      ip:
+                        description: primary ip of the virtual machine.
+                        type: string
+                      name:
+                        description: The name of the  resource.
+                        type: string
+                      networkInterfaceID:
+                        type: string
+                      placementGroupId:
+                        description: The placement group ID that belongs to this server;
+                          Requires system privileges
                         type: string
                       providerID:
                         type: string
                       ram:
+                        description: The memory size for the enterprise server in
+                          MB, such as 2048. Size must be specified in multiples of
+                          256 MB with a minimum of 256 MB; however, if you set ramHotPlug
+                          to TRUE then you must use a minimum of 1024 MB. If you set
+                          the RAM size more than 240GB, then ramHotPlug will be set
+                          to FALSE and can not be set to TRUE unless RAM size not
+                          set to less than 240GB.
+                        format: int32
                         type: integer
+                      volumeID:
+                        type: string
                     required:
                     - bootVolume
-                    - cores
-                    - datacenterID
-                    - lan
-                    - providerID
-                    - ram
                     type: object
                 required:
-                - template
+                - spec
                 type: object
             required:
             - template

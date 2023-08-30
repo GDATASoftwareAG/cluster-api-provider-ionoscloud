@@ -57,6 +57,27 @@ spec:
                         - host
                         - port
                         type: object
+                      dataCenterID:
+                        type: string
+                      identityName:
+                        type: string
+                      internetLanID:
+                        format: int32
+                        type: integer
+                      loadBalancerID:
+                        type: string
+                      location:
+                        type: string
+                      privateLanID:
+                        format: int32
+                        type: integer
+                      publicLanID:
+                        format: int32
+                        type: integer
+                    required:
+                    - controlPlaneEndpoint
+                    - identityName
+                    - location
                     type: object
                 required:
                 - template

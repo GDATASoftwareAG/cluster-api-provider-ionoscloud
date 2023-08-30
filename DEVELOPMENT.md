@@ -76,6 +76,11 @@ More information can be found via the [Kubebuilder Documentation](https://book.k
 
 Copy this to capi project:
 
+.env
+```
+export IONOS_USERNAME=""
+export IONOS_PASSWORD=""
+```
 tilt-settings.yaml
 ```
 default_registry: "" # change if you use a remote image registry
@@ -85,8 +90,13 @@ provider_repos:
   - ../cluster-api-provider-ionoscloud
 enable_providers:
   - ionoscloud
+  - kubeadm-bootstrap
+  - kubeadm-control-plane
+debug:
+  ionoscloud:
+    port: 30000
 ```
 
 ctlptl create cluster kind --name kind-capi-test --registry=ctlptl-registry
-
+source .env
 tilt up in capi project
