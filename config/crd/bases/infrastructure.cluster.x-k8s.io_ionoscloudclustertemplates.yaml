@@ -74,10 +74,6 @@ spec:
                       publicLanID:
                         format: int32
                         type: integer
-                    required:
-                    - controlPlaneEndpoint
-                    - identityName
-                    - location
                     type: object
                 required:
                 - template

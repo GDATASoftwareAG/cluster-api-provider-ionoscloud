@@ -4,7 +4,7 @@ metadata:
   name: ionoscloudcluster
 spec:
   location: "de/txl"
-  identityName: sample
+  identityName: ionos-identity
   controlPlaneEndpoint:
     host: "85.215.201.63"
     port: 6443

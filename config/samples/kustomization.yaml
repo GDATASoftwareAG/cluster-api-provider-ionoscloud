@@ -1,10 +1,11 @@
 ## Append samples of your project ##
 resources:
 - cluster.yaml
-- kubeadmcontrolplane.yaml
 - infrastructure_v1alpha1_ionoscloudcluster.yaml
-- infrastructure_v1alpha1_ionoscloudmachinetemplate.yaml
 - infrastructure_v1alpha1_IONOSCloudClusterIdentity.yaml
 - infrastructure_v1alpha1_ionoscloudmachinetemplate-control-plane.yaml
+- infrastructure_v1alpha1_ionoscloudmachinetemplate-worker.yaml
 - ionos-credentials.yaml
+- kubeadmconfigtemplate.yaml
+- kubeadmcontrolplane.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples

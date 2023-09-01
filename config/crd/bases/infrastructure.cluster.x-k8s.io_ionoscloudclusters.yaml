@@ -65,10 +65,6 @@ spec:
               publicLanID:
                 format: int32
                 type: integer
-            required:
-            - controlPlaneEndpoint
-            - identityName
-            - location
             type: object
           status:
             description: IONOSCloudClusterStatus defines the observed state of IONOSCloudCluster

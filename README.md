@@ -58,7 +58,5 @@ limitations under the License.
 
 <!-- References -->
 [cluster_api]: https://github.com/kubernetes-sigs/cluster-api
-[kops]: https://github.com/kubernetes/kops
-[kubicorn]: http://kubicorn.io/
 [image_builder]: https://github.com/kubernetes-sigs/image-builder/
 [ionos_cloud]: https://ionos.cloud

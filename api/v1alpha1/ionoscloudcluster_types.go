@@ -85,9 +85,9 @@ type Location string
 
 // IONOSCloudClusterSpec defines the desired state of IONOSCloudCluster
 type IONOSCloudClusterSpec struct {
-	Location             string                `json:"location"` // TODO: make immutable, see https://book.kubebuilder.io/cronjob-tutorial/webhook-implementation.html
-	IdentityName         string                `json:"identityName"`
-	ControlPlaneEndpoint clusterv1.APIEndpoint `json:"controlPlaneEndpoint"`
+	Location             string                `json:"location,omitempty"` // TODO: make immutable, see https://book.kubebuilder.io/cronjob-tutorial/webhook-implementation.html
+	IdentityName         string                `json:"identityName,omitempty"`
+	ControlPlaneEndpoint clusterv1.APIEndpoint `json:"controlPlaneEndpoint,omitempty"`
 
 	DataCenterID   string `json:"dataCenterID,omitempty"`
 	LoadBalancerID string `json:"loadBalancerID,omitempty"`
