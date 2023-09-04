@@ -38,7 +38,7 @@ spec:
             properties:
               template:
                 properties:
-                  template:
+                  spec:
                     description: IONOSCloudClusterSpec defines the desired state of
                       IONOSCloudCluster
                     properties:
@@ -76,7 +76,7 @@ spec:
                         type: integer
                     type: object
                 required:
-                - template
+                - spec
                 type: object
             required:
             - template
