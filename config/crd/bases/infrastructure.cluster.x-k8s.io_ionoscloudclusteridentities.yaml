@@ -12,7 +12,7 @@ spec:
     listKind: IONOSCloudClusterIdentityList
     plural: ionoscloudclusteridentities
     singular: ionoscloudclusteridentity
-  scope: Namespaced
+  scope: Cluster
   versions:
   - name: v1alpha1
     schema:

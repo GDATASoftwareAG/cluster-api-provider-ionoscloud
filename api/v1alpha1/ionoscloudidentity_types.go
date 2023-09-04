@@ -50,6 +50,7 @@ type IONOSCloudClusterIdentityStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:resource:scope=Cluster
 
 // IONOSCloudClusterIdentity is the Schema for the ionoscloudidentities API
 type IONOSCloudClusterIdentity struct {
