@@ -26,7 +26,7 @@ type IONOSCloudClusterTemplateSpec struct {
 }
 
 type IONOSCloudClusterTemplateResource struct {
-	Template IONOSCloudClusterSpec `json:"template"`
+	Spec IONOSCloudClusterSpec `json:"template"`
 }
 
 // +kubebuilder:object:root=true
