@@ -6,20 +6,22 @@ import (
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 )
 
 const (
 	UserNameProperty = "username"
 	PasswordProperty = "password"
 	TokenProperty    = "token"
+	defaultNamespace = "capic-system"
 )
 
 func GetLoginDataForCluster(ctx context.Context, client client.Client, ionoscloudCluster *v1alpha1.IONOSCloudCluster) (username, password, token, host string, err error) {
 	ionoscloudClusterIdentity := &v1alpha1.IONOSCloudClusterIdentity{}
 	nsn := types.NamespacedName{
-		Name:      ionoscloudCluster.Spec.IdentityName,
-		Namespace: ionoscloudCluster.Namespace,
+		Name: ionoscloudCluster.Spec.IdentityName,
 	}
 	err = client.Get(ctx, nsn, ionoscloudClusterIdentity)
 	if err != nil {
@@ -31,7 +33,7 @@ func GetLoginDataForCluster(ctx context.Context, client client.Client, ionosclou
 func GetLoginDataFromIdentity(ctx context.Context, client client.Client, ionoscloudClusterIdentity *v1alpha1.IONOSCloudClusterIdentity) (username, password, token, host string, err error) {
 	host = ionoscloudClusterIdentity.Spec.HostUrl
 	secret := &v1.Secret{}
-	nsn := types.NamespacedName{Name: ionoscloudClusterIdentity.Spec.SecretName, Namespace: ionoscloudClusterIdentity.Namespace}
+	nsn := types.NamespacedName{Name: ionoscloudClusterIdentity.Spec.SecretName, Namespace: IdentitySecretNamespace()}
 	if err := client.Get(ctx, nsn, secret); err != nil {
 		return "", "", "", "", errors.Wrapf(err, "failed to get secret")
 	}
@@ -53,4 +55,15 @@ func GetLoginDataFromIdentity(ctx context.Context, client client.Client, ionoscl
 	} else {
 		return "", "", "", "", errors.New("either username and password or token must be specified")
 	}
+}
+
+func IdentitySecretNamespace() string {
+	if ns, ok := os.LookupEnv("POD_NAMESPACE"); ok {
+		return ns
+	} else if data, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace"); err == nil {
+		if ns := strings.TrimSpace(string(data)); len(ns) > 0 {
+			return ns
+		}
+	}
+	return defaultNamespace
 }

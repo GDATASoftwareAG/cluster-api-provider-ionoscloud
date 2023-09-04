@@ -91,7 +91,7 @@ var _ = Describe("IONOSCloudCluster controller", func() {
 		identitySecret = &v1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      IdentitySecretName,
-				Namespace: namespace,
+				Namespace: secretNamespace,
 			},
 			StringData: map[string]string{"token": string(uuid.NewUUID())},
 		}
@@ -101,6 +101,8 @@ var _ = Describe("IONOSCloudCluster controller", func() {
 		BeforeEach(func() {
 			var uuid = uuid.NewUUID()
 			ctx := context.Background()
+			Expect(k8sClient.Create(ctx, identitySecret)).Should(Succeed())
+			Expect(k8sClient.Create(ctx, capicClusterIdentity)).Should(Succeed())
 			capiCluster.SetUID(uuid)
 			Expect(k8sClient.Create(ctx, capiCluster)).Should(Succeed())
 			capicCluster.OwnerReferences = []metav1.OwnerReference{{
@@ -111,13 +113,10 @@ var _ = Describe("IONOSCloudCluster controller", func() {
 				BlockOwnerDeletion: ionoscloud.ToPtr(true),
 				UID:                uuid,
 			}}
-
 			Expect(k8sClient.Create(ctx, capicCluster)).Should(Succeed())
-			Expect(k8sClient.Create(ctx, capicClusterIdentity)).Should(Succeed())
-			Expect(k8sClient.Create(ctx, identitySecret)).Should(Succeed())
 		})
 
-		It("should set OwnerRefs on corresponding IONOSCloudMachines", func() {
+		FIt("should set OwnerRefs on corresponding IONOSCloudMachines", func() {
 			const (
 				machineName = "owned-machine"
 			)

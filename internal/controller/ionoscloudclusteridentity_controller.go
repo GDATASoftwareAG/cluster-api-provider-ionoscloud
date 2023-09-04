@@ -130,7 +130,7 @@ func (r *IONOSCloudClusterIdentityReconciler) reconcileNormal(ctx *context.Ident
 	ctx.Logger.Info("Reconciling IONOSCloudClusterIdentity")
 
 	secret := &v1.Secret{}
-	nsn := types.NamespacedName{Name: ctx.IONOSCloudClusterIdentity.Spec.SecretName, Namespace: ctx.IONOSCloudClusterIdentity.Namespace}
+	nsn := types.NamespacedName{Name: ctx.IONOSCloudClusterIdentity.Spec.SecretName, Namespace: utils.IdentitySecretNamespace()}
 	if err := r.K8sClient.Get(ctx, nsn, secret); err != nil {
 		if apierrors.IsNotFound(err) {
 			conditions.MarkFalse(ctx.IONOSCloudClusterIdentity, v1alpha1.CredentialsAvailableCondition, v1alpha1.SecretNotAvailableReason, clusterv1.ConditionSeverityWarning, err.Error())

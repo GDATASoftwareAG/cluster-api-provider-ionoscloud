@@ -59,6 +59,7 @@ var _ = Describe("IONOSCloudMachine controller", func() {
 		CAPIClusterName = fmt.Sprintf("capi-cluster-%s", fakeClientLookupKey)
 		IdentitySecretName = fmt.Sprintf("identity-secret-%s", fakeClientLookupKey)
 		BootstrapSecretName = fmt.Sprintf("bootstrap-secret-%s", fakeClientLookupKey)
+
 		capiMachine = &clusterv1.Machine{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      CAPIMachineName,
@@ -138,7 +139,7 @@ var _ = Describe("IONOSCloudMachine controller", func() {
 		identitySecret = &v1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      IdentitySecretName,
-				Namespace: namespace,
+				Namespace: secretNamespace,
 			},
 			StringData: map[string]string{"token": string(uuid.NewUUID())},
 		}

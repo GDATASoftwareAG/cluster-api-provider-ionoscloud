@@ -19,9 +19,13 @@ package controller_test
 import (
 	goctx "context"
 	"github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/internal/ionos"
+	"github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/internal/utils"
 	fakes "github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/testing"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/cluster-api/api/v1beta1"
@@ -49,12 +53,13 @@ import (
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 var (
-	cfg         *rest.Config
-	k8sClient   client.Client
-	testEnv     *envtest.Environment
-	ctx         goctx.Context
-	cancel      goctx.CancelFunc
-	FakeClients = map[string]*fakes.FakeClient{}
+	cfg             *rest.Config
+	k8sClient       client.Client
+	testEnv         *envtest.Environment
+	ctx             goctx.Context
+	cancel          goctx.CancelFunc
+	FakeClients     = map[string]*fakes.FakeClient{}
+	secretNamespace string
 )
 
 func TestControllers(t *testing.T) {
@@ -65,7 +70,7 @@ func TestControllers(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
-
+	secretNamespace = utils.IdentitySecretNamespace()
 	ctx, cancel = goctx.WithCancel(goctx.TODO())
 
 	By("bootstrapping test environment")
@@ -133,6 +138,13 @@ var _ = BeforeSuite(func() {
 		}}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
+	// create namespace
+	ctx := goctx.Background()
+	ns := &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: secretNamespace},
+	}
+	Expect(k8sClient.Create(ctx, ns)).Should(Succeed())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -155,6 +167,18 @@ func NewFakeAPIClient(_, _, _, host string) ionos.IONOSClient {
 var _ = AfterSuite(func() {
 	cancel()
 	By("tearing down the test environment")
-	err := testEnv.Stop()
+	err := (func() (err error) {
+		// Need to sleep if the first stop fails due to a bug:
+		// https://github.com/kubernetes-sigs/controller-runtime/issues/1571
+		sleepTime := 1 * time.Millisecond
+		for i := 0; i < 12; i++ { // Exponentially sleep up to ~4s
+			if err = testEnv.Stop(); err == nil {
+				return
+			}
+			sleepTime *= 2
+			time.Sleep(sleepTime)
+		}
+		return
+	})()
 	Expect(err).NotTo(HaveOccurred())
 })

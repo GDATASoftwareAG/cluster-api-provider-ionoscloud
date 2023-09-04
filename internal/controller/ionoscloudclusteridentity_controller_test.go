@@ -20,9 +20,8 @@ import (
 var _ = Describe("IONOSCloudClusterIdentity controller", func() {
 
 	const (
-		timeout   = time.Second * 10
-		interval  = time.Millisecond * 250
-		namespace = "default"
+		timeout  = time.Second * 10
+		interval = time.Millisecond * 250
 	)
 
 	var (
@@ -37,8 +36,7 @@ var _ = Describe("IONOSCloudClusterIdentity controller", func() {
 		queryClusterIdentityConditions = func() []clusterv1.Condition {
 			identity := &v1alpha1.IONOSCloudClusterIdentity{}
 			nsn := types.NamespacedName{
-				Namespace: namespace,
-				Name:      CAPICClusterIdentityName,
+				Name: CAPICClusterIdentityName,
 			}
 			err := k8sClient.Get(ctx, nsn, identity)
 			if err != nil {
@@ -57,8 +55,7 @@ var _ = Describe("IONOSCloudClusterIdentity controller", func() {
 		IdentitySecretName = fmt.Sprintf("ionos-credentials--%s", fakeClientLookupKey)
 		capicClusterIdentity = &v1alpha1.IONOSCloudClusterIdentity{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      CAPICClusterIdentityName,
-				Namespace: namespace,
+				Name: CAPICClusterIdentityName,
 			},
 			Spec: v1alpha1.IONOSCloudClusterIdentitySpec{
 				SecretName: IdentitySecretName,
@@ -69,7 +66,7 @@ var _ = Describe("IONOSCloudClusterIdentity controller", func() {
 		identitySecret = &v1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      IdentitySecretName,
-				Namespace: namespace,
+				Namespace: secretNamespace,
 			},
 			StringData: map[string]string{"token": string(uuid.NewUUID())},
 		}
@@ -107,8 +104,7 @@ var _ = Describe("IONOSCloudClusterIdentity controller", func() {
 				Eventually(func() bool {
 					identity := &v1alpha1.IONOSCloudClusterIdentity{}
 					nsn := types.NamespacedName{
-						Namespace: namespace,
-						Name:      CAPICClusterIdentityName,
+						Name: CAPICClusterIdentityName,
 					}
 					err := k8sClient.Get(ctx, nsn, identity)
 					if err != nil {
