@@ -13,8 +13,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
+      - name: Check out code
+        uses: actions/checkout@v2
       - name: Run tests
-        id: test
         run: |
           make test
   build:
