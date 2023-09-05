@@ -332,7 +332,7 @@ func (r *IONOSCloudClusterReconciler) reconcileLoadBalancer(ctx *context.Cluster
 	}
 
 	if resp.StatusCode == 404 || *loadBalancer.Metadata.State == STATE_BUSY {
-		return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, errors.Wrap(err, "loadbalancer not available (yet)")
+		return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, errors.New("loadbalancer not available (yet)")
 	}
 
 	conditions.MarkTrue(ctx.IONOSCloudCluster, v1alpha1.LoadBalancerCreatedCondition)

@@ -106,7 +106,7 @@ func (c *APIClient) GetLoadBalancer(ctx context.Context, datacenterId, loadBalan
 
 func (c *APIClient) GetLoadBalancerForwardingRules(ctx context.Context, datacenterId, loadBalancerId string) (ionoscloud.NetworkLoadBalancerForwardingRules, *ionoscloud.APIResponse, error) {
 	loadBalancerReq := c.client.NetworkLoadBalancersApi.DatacentersNetworkloadbalancersForwardingrulesGet(ctx, datacenterId, loadBalancerId)
-	return loadBalancerReq.Depth(1).Execute()
+	return loadBalancerReq.Depth(2).Execute()
 }
 
 func (c *APIClient) PatchLoadBalancerForwardingRule(ctx context.Context, datacenterId, loadBalancerId, ruleId string, properties ionoscloud.NetworkLoadBalancerForwardingRuleProperties) (ionoscloud.NetworkLoadBalancerForwardingRule, *ionoscloud.APIResponse, error) {
