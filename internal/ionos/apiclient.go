@@ -34,7 +34,6 @@ type ServerAPI interface {
 	GetServer(ctx context.Context, datacenterId, serverId string) (ionoscloud.Server, *ionoscloud.APIResponse, error)
 }
 
-//go:generate mockgen -source=$GOFILE -destination=../../mocks/ionoscloud/apiclient.mock.go -package=ionoscloudmocks IONOSClient
 type IONOSClient interface {
 	DatacenterAPI
 	LanAPI
