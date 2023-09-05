@@ -116,7 +116,7 @@ var _ = Describe("IONOSCloudCluster controller", func() {
 			Expect(k8sClient.Create(ctx, capicCluster)).Should(Succeed())
 		})
 
-		FIt("should set OwnerRefs on corresponding IONOSCloudMachines", func() {
+		It("should set OwnerRefs on corresponding IONOSCloudMachines", func() {
 			const (
 				machineName = "owned-machine"
 			)

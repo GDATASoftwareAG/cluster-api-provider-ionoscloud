@@ -10,6 +10,13 @@ on:
       - published
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run tests
+        id: test
+        run: |
+          make test
   build:
     runs-on: ubuntu-latest
     steps:
