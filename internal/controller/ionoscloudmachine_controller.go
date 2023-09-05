@@ -372,7 +372,7 @@ func (r *IONOSCloudMachineReconciler) reconcileServer(ctx *context.MachineContex
 	}
 
 	if resp.StatusCode == 404 || *server.Metadata.State == STATE_BUSY {
-		return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, errors.Wrap(err, "server not yet created")
+		return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, errors.New("server not yet created")
 	}
 
 	nics := *server.Entities.Nics.Items
