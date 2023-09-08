@@ -162,67 +162,71 @@ func (r *IONOSCloudMachineReconciler) Reconcile(ctx goctx.Context, req ctrl.Requ
 
 func (r *IONOSCloudMachineReconciler) reconcileDelete(ctx *context.MachineContext) (reconcile.Result, error) {
 	ctx.Logger.Info("Deleting IONOSCloudMachine")
-	//if ctx.IONOSCloudMachine.Spec.ProviderID != "" {
-	//	server, _, err := ctx.IONOSClient.IONOSAPIClient.ServersApi.DatacentersServersFindById(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.ProviderID).Depth(2).Execute()
-	//	if err != nil {
-	//		return reconcile.Result{}, err
-	//	}
-	//
-	//	_, err = ctx.IONOSAPIClient.ServersApi.DatacentersServersDelete(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.ProviderID).Execute()
-	//	if err != nil {
-	//		return reconcile.Result{}, err
-	//	}
-	//
-	//	for _, volume := range *server.Entities.Volumes.Items {
-	//		_, err = ctx.IONOSAPIClient.VolumesApi.DatacentersVolumesDelete(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, *volume.Id).Execute()
-	//		if err != nil {
-	//			return reconcile.Result{}, err
-	//		}
-	//	}
-	//
-	//	if ctx.IONOSCloudMachine.Spec.IP != nil {
-	//		req := ctx.IONOSAPIClient.NetworkLoadBalancersApi.DatacentersNetworkloadbalancersForwardingrulesGet(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudCluster.Spec.LoadBalancerID)
-	//		if rules, _, err := req.Depth(1).Execute(); err != nil {
-	//			return reconcile.Result{}, err
-	//		} else {
-	//			desiredTarget := ionoscloud.NetworkLoadBalancerForwardingRuleTarget{
-	//				Ip:     ctx.IONOSCloudMachine.Spec.IP,
-	//				Port:   ionoscloud.PtrInt32(6443),
-	//				Weight: ionoscloud.PtrInt32(1),
-	//			}
-	//			for _, rule := range *rules.Items {
-	//				if *rule.Properties.ListenerPort != 6443 {
-	//					// we only care about the api server port
-	//					continue
-	//				}
-	//
-	//				for _, target := range *rule.Properties.Targets {
-	//					if *target.Ip == *desiredTarget.Ip {
-	//						targets := *rule.Properties.Targets
-	//						targets = append(targets, desiredTarget)
-	//						updateReq := ctx.IONOSAPIClient.NetworkLoadBalancersApi.DatacentersNetworkloadbalancersForwardingrulesPatch(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudCluster.Spec.LoadBalancerID, *rule.Id)
-	//						if _, _, err = updateReq.NetworkLoadBalancerForwardingRuleProperties(ionoscloud.NetworkLoadBalancerForwardingRuleProperties{
-	//							Algorithm:    rule.Properties.Algorithm,
-	//							HealthCheck:  rule.Properties.HealthCheck,
-	//							ListenerIp:   rule.Properties.ListenerIp,
-	//							ListenerPort: rule.Properties.ListenerPort,
-	//							Name:         rule.Properties.Name,
-	//							Protocol:     rule.Properties.Protocol,
-	//							Targets:      &targets,
-	//						},
-	//						).Execute(); err != nil {
-	//							return reconcile.Result{}, err
-	//						}
-	//
-	//					}
-	//				}
-	//			}
-	//		}
-	//	}
-	//
-	//	conditions.MarkFalse(ctx.IONOSCloudCluster, v1alpha1.ServerCreatedCondition, "ServerDeleted", clusterv1.ConditionSeverityInfo, "")
-	//	ctrlutil.RemoveFinalizer(ctx.IONOSCloudMachine, v1alpha1.MachineFinalizer)
-	//}
+	if ctx.IONOSCloudMachine.Spec.ProviderID != "" {
+		server, _, err := ctx.IONOSClient.GetServer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.ProviderID)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		_, err = ctx.IONOSClient.DeleteServer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.ProviderID)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		for _, volume := range *server.Entities.Volumes.Items {
+			_, err = ctx.IONOSClient.DeleteVolume(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, *volume.Id)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+		}
+
+		if ctx.IONOSCloudMachine.Spec.IP != nil {
+			if rules, _, err := ctx.IONOSClient.GetLoadBalancerForwardingRules(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudCluster.Spec.LoadBalancerID); err != nil {
+				return reconcile.Result{}, err
+			} else {
+				desiredTarget := ionoscloud.NetworkLoadBalancerForwardingRuleTarget{
+					Ip:     ctx.IONOSCloudMachine.Spec.IP,
+					Port:   ionoscloud.PtrInt32(6443),
+					Weight: ionoscloud.PtrInt32(1),
+				}
+				for _, rule := range *rules.Items {
+					if *rule.Properties.ListenerPort != 6443 {
+						// we only care about the api server port
+						continue
+					}
+
+					for _, target := range *rule.Properties.Targets {
+						if *target.Ip == *desiredTarget.Ip {
+							targets := *rule.Properties.Targets
+							targets = append(targets, desiredTarget)
+							properties := ionoscloud.NetworkLoadBalancerForwardingRuleProperties{
+								Algorithm:    rule.Properties.Algorithm,
+								HealthCheck:  rule.Properties.HealthCheck,
+								ListenerIp:   rule.Properties.ListenerIp,
+								ListenerPort: rule.Properties.ListenerPort,
+								Name:         rule.Properties.Name,
+								Protocol:     rule.Properties.Protocol,
+								Targets:      &targets,
+							}
+							if _, _, err = ctx.IONOSClient.PatchLoadBalancerForwardingRule(
+								ctx,
+								ctx.IONOSCloudCluster.Spec.DataCenterID,
+								ctx.IONOSCloudCluster.Spec.LoadBalancerID,
+								*rule.Id,
+								properties,
+							); err != nil {
+								return reconcile.Result{}, err
+							}
+
+						}
+					}
+				}
+			}
+		}
+
+		conditions.MarkFalse(ctx.IONOSCloudCluster, v1alpha1.ServerCreatedCondition, "ServerDeleted", clusterv1.ConditionSeverityInfo, "")
+		ctrlutil.RemoveFinalizer(ctx.IONOSCloudMachine, v1alpha1.MachineFinalizer)
+	}
 
 	return reconcile.Result{}, nil
 }

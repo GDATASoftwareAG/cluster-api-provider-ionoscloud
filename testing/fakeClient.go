@@ -24,6 +24,28 @@ type FakeClient struct {
 	CredentialsAreValid bool
 }
 
+func (f FakeClient) DeleteServer(_ context.Context, datacenterId, serverId string) (*ionoscloud.APIResponse, error) {
+
+	var items []ionoscloud.Server
+
+	for _, server := range *f.DataCenters[datacenterId].Entities.Servers.Items {
+		if *server.Id != serverId {
+			items = append(items, server)
+		}
+	}
+
+	f.DataCenters[datacenterId].Entities.Servers.Items = &items
+	return &ionoscloud.APIResponse{Response: &http.Response{
+		StatusCode: http.StatusOK,
+	}}, nil
+}
+
+func (f FakeClient) DeleteVolume(_ context.Context, _, _ string) (*ionoscloud.APIResponse, error) {
+	return &ionoscloud.APIResponse{Response: &http.Response{
+		StatusCode: http.StatusOK,
+	}}, nil
+}
+
 func (f FakeClient) APIInfo(_ context.Context) (info ionoscloud.Info, response *ionoscloud.APIResponse, err error) {
 	if f.CredentialsAreValid {
 		return *ionoscloud.NewInfo(), ionoscloud.NewAPIResponse(nil), nil

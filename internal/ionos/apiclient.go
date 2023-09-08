@@ -22,6 +22,10 @@ type DefaultAPI interface {
 	APIInfo(ctx context.Context) (ionoscloud.Info, *ionoscloud.APIResponse, error)
 }
 
+type VolumeAPI interface {
+	DeleteVolume(ctx context.Context, datacenterId, volumeId string) (*ionoscloud.APIResponse, error)
+}
+
 type LoadBalancerAPI interface {
 	CreateLoadBalancer(ctx context.Context, datacenterId string, loadbalancer ionoscloud.NetworkLoadBalancer) (ionoscloud.NetworkLoadBalancer, *ionoscloud.APIResponse, error)
 	GetLoadBalancer(ctx context.Context, datacenterId, loadBalancerId string) (ionoscloud.NetworkLoadBalancer, *ionoscloud.APIResponse, error)
@@ -32,6 +36,7 @@ type LoadBalancerAPI interface {
 type ServerAPI interface {
 	CreateServer(ctx context.Context, datacenterId string, server ionoscloud.Server) (ionoscloud.Server, *ionoscloud.APIResponse, error)
 	GetServer(ctx context.Context, datacenterId, serverId string) (ionoscloud.Server, *ionoscloud.APIResponse, error)
+	DeleteServer(ctx context.Context, datacenterId, serverId string) (*ionoscloud.APIResponse, error)
 }
 
 type IONOSClient interface {
@@ -40,6 +45,7 @@ type IONOSClient interface {
 	LoadBalancerAPI
 	ServerAPI
 	DefaultAPI
+	VolumeAPI
 }
 
 func NewAPIClient(username, password, token, host string) IONOSClient {
@@ -53,6 +59,14 @@ func NewAPIClient(username, password, token, host string) IONOSClient {
 
 type APIClient struct {
 	client *ionoscloud.APIClient
+}
+
+func (c *APIClient) DeleteVolume(ctx context.Context, datacenterId, volumeId string) (*ionoscloud.APIResponse, error) {
+	return c.client.VolumesApi.DatacentersVolumesDelete(ctx, datacenterId, volumeId).Execute()
+}
+
+func (c *APIClient) DeleteServer(ctx context.Context, datacenterId, serverId string) (*ionoscloud.APIResponse, error) {
+	return c.client.ServersApi.DatacentersServersDelete(ctx, datacenterId, serverId).Execute()
 }
 
 func (c *APIClient) APIInfo(ctx context.Context) (info ionoscloud.Info, response *ionoscloud.APIResponse, err error) {
