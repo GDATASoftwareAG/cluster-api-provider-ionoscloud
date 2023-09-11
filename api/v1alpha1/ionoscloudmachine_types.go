@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"strings"
 )
 
 const (
@@ -68,6 +69,14 @@ type IONOSCloudMachineSpec struct {
 	ProviderID         string `json:"providerID,omitempty"`
 	NetworkInterfaceID string `json:"networkInterfaceID,omitempty"`
 	VolumeID           string `json:"volumeID,omitempty"`
+}
+
+func (s *IONOSCloudMachineSpec) UnprefixedProviderId() string {
+	if strings.HasPrefix(s.ProviderID, "ionos://") {
+		return s.ProviderID[8:]
+	} else {
+		return s.ProviderID
+	}
 }
 
 type IONOSVolumeSpec struct {

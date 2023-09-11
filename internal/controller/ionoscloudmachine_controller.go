@@ -247,7 +247,7 @@ func (r *IONOSCloudMachineReconciler) reconcileNormal(ctx *context.MachineContex
 		return *result, err
 	}
 
-	server, _, err := ctx.IONOSClient.GetServer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.ProviderID)
+	server, _, err := ctx.IONOSClient.GetServer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.UnprefixedProviderId())
 
 	if err != nil {
 		return reconcile.Result{}, err
@@ -365,17 +365,17 @@ func (r *IONOSCloudMachineReconciler) reconcileServer(ctx *context.MachineContex
 		if err != nil {
 			return &reconcile.Result{}, errors.Wrapf(err, "error creating server %v", server)
 		}
-		ctx.IONOSCloudMachine.Spec.ProviderID = *server.Id
+		ctx.IONOSCloudMachine.Spec.ProviderID = fmt.Sprintf("ionos://%s", *server.Id)
 	}
 
 	// check status
-	server, resp, err := ctx.IONOSClient.GetServer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.ProviderID)
+	server, resp, err := ctx.IONOSClient.GetServer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.UnprefixedProviderId())
 
 	if err != nil && resp.StatusCode != 404 {
 		return &reconcile.Result{}, errors.Wrap(err, "error getting server")
 	}
 
-	if resp.StatusCode == 404 || *server.Metadata.State == STATE_BUSY {
+	if resp.StatusCode == 404 || (server.Metadata != nil && *server.Metadata.State == STATE_BUSY) {
 		return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, errors.New("server not yet created")
 	}
 

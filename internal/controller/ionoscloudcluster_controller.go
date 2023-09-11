@@ -197,12 +197,12 @@ func (r *IONOSCloudClusterReconciler) reconcileDataCenter(ctx *context.ClusterCo
 	}
 
 	// check status
-	datacenter, resp, err := ctx.IONOSClient.GetDatacenter(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID)
-	if err != nil && resp.StatusCode != 404 {
-		return &reconcile.Result{}, errors.Wrap(err, "error getting private Lan")
+	_, resp, err := ctx.IONOSClient.GetDatacenter(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID)
+	if err != nil && resp != nil && resp.StatusCode != 404 {
+		return &reconcile.Result{}, errors.Wrap(err, "error getting datacenter")
 	}
 
-	if resp.StatusCode == 404 || *datacenter.Metadata.State == STATE_BUSY {
+	if resp.StatusCode == 404 {
 		return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, errors.New("datacenter not available (yet)")
 	}
 
