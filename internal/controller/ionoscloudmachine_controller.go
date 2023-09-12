@@ -163,12 +163,12 @@ func (r *IONOSCloudMachineReconciler) Reconcile(ctx goctx.Context, req ctrl.Requ
 func (r *IONOSCloudMachineReconciler) reconcileDelete(ctx *context.MachineContext) (reconcile.Result, error) {
 	ctx.Logger.Info("Deleting IONOSCloudMachine")
 	if ctx.IONOSCloudMachine.Spec.ProviderID != "" {
-		server, _, err := ctx.IONOSClient.GetServer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.ProviderID)
+		server, _, err := ctx.IONOSClient.GetServer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.UnprefixedProviderId())
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		_, err = ctx.IONOSClient.DeleteServer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.ProviderID)
+		_, err = ctx.IONOSClient.DeleteServer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.UnprefixedProviderId())
 		if err != nil {
 			return reconcile.Result{}, err
 		}
