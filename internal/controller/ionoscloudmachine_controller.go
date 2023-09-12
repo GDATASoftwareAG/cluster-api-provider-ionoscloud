@@ -29,6 +29,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	apitypes "k8s.io/apimachinery/pkg/types"
+	"net/http"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	bootstrapv1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
 	clusterutilv1 "sigs.k8s.io/cluster-api/util"
@@ -163,20 +164,22 @@ func (r *IONOSCloudMachineReconciler) Reconcile(ctx goctx.Context, req ctrl.Requ
 func (r *IONOSCloudMachineReconciler) reconcileDelete(ctx *context.MachineContext) (reconcile.Result, error) {
 	ctx.Logger.Info("Deleting IONOSCloudMachine")
 	if ctx.IONOSCloudMachine.Spec.ProviderID != "" {
-		server, _, err := ctx.IONOSClient.GetServer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.UnprefixedProviderId())
-		if err != nil {
+		server, resp, err := ctx.IONOSClient.GetServer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.ProviderID)
+		if err != nil && resp.StatusCode != http.StatusNotFound {
 			return reconcile.Result{}, err
 		}
 
-		_, err = ctx.IONOSClient.DeleteServer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.UnprefixedProviderId())
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		for _, volume := range *server.Entities.Volumes.Items {
-			_, err = ctx.IONOSClient.DeleteVolume(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, *volume.Id)
+		if resp.StatusCode != http.StatusNotFound {
+			_, err = ctx.IONOSClient.DeleteServer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.ProviderID)
 			if err != nil {
 				return reconcile.Result{}, err
+			}
+
+			for _, volume := range *server.Entities.Volumes.Items {
+				_, err = ctx.IONOSClient.DeleteVolume(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, *volume.Id)
+				if err != nil {
+					return reconcile.Result{}, err
+				}
 			}
 		}
 
@@ -247,7 +250,7 @@ func (r *IONOSCloudMachineReconciler) reconcileNormal(ctx *context.MachineContex
 		return *result, err
 	}
 
-	server, _, err := ctx.IONOSClient.GetServer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.UnprefixedProviderId())
+	server, _, err := ctx.IONOSClient.GetServer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.ProviderID)
 
 	if err != nil {
 		return reconcile.Result{}, err
@@ -365,11 +368,11 @@ func (r *IONOSCloudMachineReconciler) reconcileServer(ctx *context.MachineContex
 		if err != nil {
 			return &reconcile.Result{}, errors.Wrapf(err, "error creating server %v", server)
 		}
-		ctx.IONOSCloudMachine.Spec.ProviderID = fmt.Sprintf("ionos://%s", *server.Id)
+		ctx.IONOSCloudMachine.Spec.ProviderID = *server.Id
 	}
 
 	// check status
-	server, resp, err := ctx.IONOSClient.GetServer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.UnprefixedProviderId())
+	server, resp, err := ctx.IONOSClient.GetServer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.ProviderID)
 
 	if err != nil && resp.StatusCode != 404 {
 		return &reconcile.Result{}, errors.Wrap(err, "error getting server")

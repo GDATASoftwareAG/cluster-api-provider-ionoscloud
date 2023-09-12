@@ -2,7 +2,9 @@ package ionos
 
 import (
 	"context"
+	"fmt"
 	ionoscloud "github.com/ionos-cloud/sdk-go/v6"
+	"strings"
 )
 
 var _ IONOSClient = (*APIClient)(nil)
@@ -66,6 +68,7 @@ func (c *APIClient) DeleteVolume(ctx context.Context, datacenterId, volumeId str
 }
 
 func (c *APIClient) DeleteServer(ctx context.Context, datacenterId, serverId string) (*ionoscloud.APIResponse, error) {
+	serverId = strings.TrimPrefix(serverId, "ionos://")
 	return c.client.ServersApi.DatacentersServersDelete(ctx, datacenterId, serverId).Execute()
 }
 
@@ -133,6 +136,9 @@ func (c *APIClient) CreateServer(ctx context.Context, datacenterId string, serve
 }
 
 func (c *APIClient) GetServer(ctx context.Context, datacenterId, serverId string) (ionoscloud.Server, *ionoscloud.APIResponse, error) {
+	serverId = strings.TrimPrefix(serverId, "ionos://")
 	serverReq := c.client.ServersApi.DatacentersServersFindById(ctx, datacenterId, serverId)
-	return serverReq.Depth(2).Execute()
+	server, resp, err := serverReq.Depth(2).Execute()
+	server.Id = ionoscloud.ToPtr(fmt.Sprintf("ionos://%s", *server.Id))
+	return server, resp, err
 }

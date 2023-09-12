@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"net/http"
+	"strings"
 )
 
 var _ ionos.IONOSClient = (*FakeClient)(nil)
@@ -25,7 +26,7 @@ type FakeClient struct {
 }
 
 func (f FakeClient) DeleteServer(_ context.Context, datacenterId, serverId string) (*ionoscloud.APIResponse, error) {
-
+	serverId = strings.TrimPrefix(serverId, "ionos://")
 	var items []ionoscloud.Server
 
 	for _, server := range *f.DataCenters[datacenterId].Entities.Servers.Items {
@@ -217,6 +218,7 @@ func (f FakeClient) CreateServer(_ context.Context, datacenterId string, server 
 }
 
 func (f FakeClient) GetServer(_ context.Context, datacenterId, serverId string) (ionoscloud.Server, *ionoscloud.APIResponse, error) {
+	serverId = strings.TrimPrefix(serverId, "ionos://")
 	servers := *f.DataCenters[datacenterId].Entities.Servers.Items
 
 	for _, server := range servers {
