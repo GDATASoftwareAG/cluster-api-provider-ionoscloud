@@ -139,6 +139,8 @@ func (c *APIClient) GetServer(ctx context.Context, datacenterId, serverId string
 	serverId = strings.TrimPrefix(serverId, "ionos://")
 	serverReq := c.client.ServersApi.DatacentersServersFindById(ctx, datacenterId, serverId)
 	server, resp, err := serverReq.Depth(2).Execute()
-	server.Id = ionoscloud.ToPtr(fmt.Sprintf("ionos://%s", *server.Id))
+	if server.Id != nil {
+		server.Id = ionoscloud.ToPtr(fmt.Sprintf("ionos://%s", *server.Id))
+	}
 	return server, resp, err
 }
