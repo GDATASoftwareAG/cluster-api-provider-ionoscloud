@@ -176,11 +176,12 @@ func (f FakeClient) PatchLoadBalancerForwardingRule(_ context.Context, datacente
 			for _, rule := range *loadbalancer.Entities.Forwardingrules.Items {
 				if *rule.Id == ruleId {
 					rule.Properties = &properties
+				} else {
+					return rule, &ionoscloud.APIResponse{Response: &http.Response{
+							StatusCode: http.StatusOK,
+						}},
+						nil
 				}
-				return rule, &ionoscloud.APIResponse{Response: &http.Response{
-						StatusCode: http.StatusOK,
-					}},
-					nil
 			}
 		}
 	}

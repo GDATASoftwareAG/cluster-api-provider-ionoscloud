@@ -374,11 +374,11 @@ func (r *IONOSCloudMachineReconciler) reconcileServer(ctx *context.MachineContex
 	// check status
 	server, resp, err := ctx.IONOSClient.GetServer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.ProviderID)
 
-	if err != nil && resp.StatusCode != 404 {
+	if err != nil && resp.StatusCode != http.StatusNotFound {
 		return &reconcile.Result{}, errors.Wrap(err, "error getting server")
 	}
 
-	if resp.StatusCode == 404 || (server.Metadata != nil && *server.Metadata.State == STATE_BUSY) {
+	if resp.StatusCode == http.StatusNotFound || (server.Metadata != nil && *server.Metadata.State == STATE_BUSY) {
 		return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, errors.New("server not yet created")
 	}
 

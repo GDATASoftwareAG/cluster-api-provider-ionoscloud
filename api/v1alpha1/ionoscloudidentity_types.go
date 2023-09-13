@@ -23,10 +23,10 @@ import (
 
 const (
 	CredentialsAvailableCondition clusterv1.ConditionType = "CredentialsAvailable"
-	SecretNotAvailableReason                              = "SecretNotAvailable"
+	SecretNotAvailableReason      string                  = "SecretNotAvailable"
 
 	CredentialsValidCondition clusterv1.ConditionType = "CredentialsValid"
-	CredentialsInvalidReason                          = "CredentialsInvalid"
+	CredentialsInvalidReason  string                  = "CredentialsInvalid"
 )
 
 // IONOSCloudClusterIdentitySpec defines the desired state of IONOSCloudClusterIdentity

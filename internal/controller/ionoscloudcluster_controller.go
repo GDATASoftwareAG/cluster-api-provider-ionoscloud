@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	"net/http"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	clusterutilv1 "sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
@@ -135,7 +136,7 @@ func (r *IONOSCloudClusterReconciler) reconcileDelete(ctx *context.ClusterContex
 	ctx.Logger.Info("Deleting IONOSCloudCluster")
 	if ctx.IONOSCloudCluster.Spec.DataCenterID != "" {
 		resp, err := ctx.IONOSClient.DeleteDatacenter(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID)
-		if err != nil && resp.StatusCode != 404 {
+		if err != nil && resp.StatusCode != http.StatusNotFound {
 			return reconcile.Result{}, err
 		}
 
@@ -197,11 +198,11 @@ func (r *IONOSCloudClusterReconciler) reconcileDataCenter(ctx *context.ClusterCo
 
 	// check status
 	_, resp, err := ctx.IONOSClient.GetDatacenter(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID)
-	if err != nil && resp != nil && resp.StatusCode != 404 {
+	if err != nil && resp != nil && resp.StatusCode != http.StatusNotFound {
 		return &reconcile.Result{}, errors.Wrap(err, "error getting datacenter")
 	}
 
-	if resp.StatusCode == 404 {
+	if resp.StatusCode == http.StatusNotFound {
 		return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, errors.New("datacenter not available (yet)")
 	}
 
@@ -224,11 +225,11 @@ func (r *IONOSCloudClusterReconciler) reconcilePrivateLan(ctx *context.ClusterCo
 	lanId := fmt.Sprint(*ctx.IONOSCloudCluster.Spec.PrivateLanID)
 	lan, resp, err := ctx.IONOSClient.GetLan(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, lanId)
 
-	if err != nil && resp.StatusCode != 404 {
+	if err != nil && resp.StatusCode != http.StatusNotFound {
 		return &reconcile.Result{}, errors.Wrap(err, "error getting private Lan")
 	}
 
-	if resp.StatusCode == 404 || *lan.Metadata.State == STATE_BUSY {
+	if resp.StatusCode == http.StatusNotFound || *lan.Metadata.State == STATE_BUSY {
 		return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, errors.New("private Lan not available (yet)")
 	}
 
@@ -251,11 +252,11 @@ func (r *IONOSCloudClusterReconciler) reconcilePublicLan(ctx *context.ClusterCon
 	lanId := fmt.Sprint(*ctx.IONOSCloudCluster.Spec.PublicLanID)
 	lan, resp, err := ctx.IONOSClient.GetLan(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, lanId)
 
-	if err != nil && resp.StatusCode != 404 {
+	if err != nil && resp.StatusCode != http.StatusNotFound {
 		return &reconcile.Result{}, errors.Wrap(err, "error getting public Lan")
 	}
 
-	if resp.StatusCode == 404 || *lan.Metadata.State == STATE_BUSY {
+	if resp.StatusCode == http.StatusNotFound || *lan.Metadata.State == STATE_BUSY {
 		return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, errors.New("public Lan not available (yet)")
 	}
 
@@ -277,11 +278,11 @@ func (r *IONOSCloudClusterReconciler) reconcileInternet(ctx *context.ClusterCont
 	lanId := fmt.Sprint(*ctx.IONOSCloudCluster.Spec.InternetLanID)
 	lan, resp, err := ctx.IONOSClient.GetLan(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, lanId)
 
-	if err != nil && resp.StatusCode != 404 {
+	if err != nil && resp.StatusCode != http.StatusNotFound {
 		return &reconcile.Result{}, errors.New("error getting internet Lan")
 	}
 
-	if resp.StatusCode == 404 || *lan.Metadata.State == STATE_BUSY {
+	if resp.StatusCode == http.StatusNotFound || *lan.Metadata.State == STATE_BUSY {
 		return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, errors.New("internet Lan not available (yet)")
 	}
 
@@ -326,11 +327,11 @@ func (r *IONOSCloudClusterReconciler) reconcileLoadBalancer(ctx *context.Cluster
 
 	// check status
 	loadBalancer, resp, err := ctx.IONOSClient.GetLoadBalancer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudCluster.Spec.LoadBalancerID)
-	if err != nil && resp.StatusCode != 404 {
+	if err != nil && resp.StatusCode != http.StatusNotFound {
 		return &reconcile.Result{}, errors.Wrap(err, "error getting loadbalancer")
 	}
 
-	if resp.StatusCode == 404 || *loadBalancer.Metadata.State == STATE_BUSY {
+	if resp.StatusCode == http.StatusNotFound || *loadBalancer.Metadata.State == STATE_BUSY {
 		return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, errors.New("loadbalancer not available (yet)")
 	}
 
