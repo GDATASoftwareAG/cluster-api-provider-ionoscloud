@@ -80,20 +80,38 @@ const (
 	LoadBalancerForwardingRuleCreationFailedReason = "LoadBalancerForwardingRuleCreationFailed"
 )
 
-// +kubebuilder:validation:Enum=de/txl;de/fra
+// +kubebuilder:validation:Enum=es/vlt;fr/par;de/txl;de/fra;gb-lhr;us-ewr;us-las;
 type Location string
 
-// IONOSCloudClusterSpec defines the desired state of IONOSCloudCluster
-type IONOSCloudClusterSpec struct {
-	Location             string                `json:"location,omitempty"` // TODO: make immutable, see https://book.kubebuilder.io/cronjob-tutorial/webhook-implementation.html
-	IdentityName         string                `json:"identityName,omitempty"`
-	ControlPlaneEndpoint clusterv1.APIEndpoint `json:"controlPlaneEndpoint,omitempty"`
+func (r Location) String() string {
+	return string(r)
+}
 
-	DataCenterID   string `json:"dataCenterID,omitempty"`
+// IONOSCloudClusterSpec defines the desired state of IONOSCloudCluster
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.dataCenterID) || has(self.dataCenterID)", message="DataCenterID is required once set"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.loadBalancerID) || has(self.loadBalancerID)", message="LoadBalancerID is required once set"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.publicLanID) || has(self.publicLanID)", message="PublicLanID is required once set"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.internetLanID) || has(self.internetLanID)", message="InternetLanID is required once set"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.privateLanID) || has(self.privateLanID)", message="PrivateLanID is required once set"
+type IONOSCloudClusterSpec struct {
+
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Location is immutable"
+	Location Location `json:"location"`
+
+	// +kubebuilder:validation:MinLength=1
+	IdentityName         string                `json:"identityName"`
+	ControlPlaneEndpoint clusterv1.APIEndpoint `json:"controlPlaneEndpoint"`
+
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="DataCenterID is immutable"
+	DataCenterID string `json:"dataCenterID,omitempty"`
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="LoadBalancerID is immutable"
 	LoadBalancerID string `json:"loadBalancerID,omitempty"`
-	PublicLanID    *int32 `json:"publicLanID,omitempty"`
-	InternetLanID  *int32 `json:"internetLanID,omitempty"`
-	PrivateLanID   *int32 `json:"privateLanID,omitempty"`
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="PublicLanID is immutable"
+	PublicLanID *int32 `json:"publicLanID,omitempty"`
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="InternetLanID is immutable"
+	InternetLanID *int32 `json:"internetLanID,omitempty"`
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="PrivateLanID is immutable"
+	PrivateLanID *int32 `json:"privateLanID,omitempty"`
 }
 
 // IONOSCloudClusterStatus defines the observed state of IONOSCloudCluster

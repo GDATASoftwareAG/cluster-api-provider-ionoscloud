@@ -17,7 +17,7 @@ type MachineContext struct {
 	IONOSCloudMachine *v1alpha1.IONOSCloudMachine
 	PatchHelper       *patch.Helper
 	Logger            logr.Logger
-	IONOSClient       ionos.IONOSClient
+	IONOSClient       ionos.Client
 }
 
 // String returns IONOSCloudMachineGroupVersionKind IONOSCloudMachineNamespace/IONOSCloudMachineName.

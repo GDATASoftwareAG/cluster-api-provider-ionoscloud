@@ -43,15 +43,25 @@ spec:
                       IONOSCloudMachine
                     properties:
                       availabilityZone:
+                        default: AUTO
                         description: The availability zone in which the server should
                           be provisioned.
                         type: string
+                        x-kubernetes-validations:
+                        - message: AvailabilityZone is immutable
+                          rule: self == oldSelf
                       bootVolume:
                         properties:
                           image:
                             type: string
+                            x-kubernetes-validations:
+                            - message: Image is immutable
+                              rule: self == oldSelf
                           size:
                             type: string
+                            x-kubernetes-validations:
+                            - message: Size is immutable
+                              rule: self == oldSelf
                           sshKeys:
                             description: Public SSH keys are set on the image as authorized
                               keys for appropriate SSH login to the instance using
@@ -62,53 +72,75 @@ spec:
                             items:
                               type: string
                             type: array
+                            x-kubernetes-validations:
+                            - message: SSHKeys is immutable
+                              rule: self == oldSelf
                           type:
                             type: string
+                            x-kubernetes-validations:
+                            - message: Type is immutable
+                              rule: self == oldSelf
                         required:
                         - image
                         - size
                         - type
                         type: object
+                        x-kubernetes-validations:
+                        - message: SSHKeys is required once set
+                          rule: '!has(oldSelf.sshKeys) || has(self.sshKeys)'
                       cores:
                         description: The total number of cores for the enterprise
                           server.
                         format: int32
+                        minimum: 1
                         type: integer
+                        x-kubernetes-validations:
+                        - message: Cores is immutable
+                          rule: self == oldSelf
                       cpuFamily:
                         description: CPU architecture on which server gets provisioned;
                           not all CPU architectures are available in all datacenter
                           regions; available CPU architectures can be retrieved from
                           the datacenter resource; must not be provided for CUBE servers.
+                        minLength: 1
                         type: string
+                        x-kubernetes-validations:
+                        - message: CpuFamily is immutable
+                          rule: self == oldSelf
                       ip:
-                        description: primary ip of the virtual machine.
                         type: string
+                        x-kubernetes-validations:
+                        - message: IP is immutable
+                          rule: self == oldSelf
                       name:
                         description: The name of the  resource.
                         type: string
-                      networkInterfaceID:
-                        type: string
-                      placementGroupId:
-                        description: The placement group ID that belongs to this server;
-                          Requires system privileges
-                        type: string
                       providerID:
                         type: string
+                        x-kubernetes-validations:
+                        - message: ProviderID is immutable
+                          rule: self == oldSelf
                       ram:
                         description: The memory size for the enterprise server in
-                          MB, such as 2048. Size must be specified in multiples of
-                          256 MB with a minimum of 256 MB; however, if you set ramHotPlug
-                          to TRUE then you must use a minimum of 1024 MB. If you set
-                          the RAM size more than 240GB, then ramHotPlug will be set
-                          to FALSE and can not be set to TRUE unless RAM size not
-                          set to less than 240GB.
+                          MB, such as 2048.
                         format: int32
+                        minimum: 256
+                        multipleOf: 256
                         type: integer
-                      volumeID:
-                        type: string
+                        x-kubernetes-validations:
+                        - message: Ram is immutable
+                          rule: self == oldSelf
                     required:
                     - bootVolume
+                    - cores
+                    - cpuFamily
+                    - ram
                     type: object
+                    x-kubernetes-validations:
+                    - message: ProviderID is required once set
+                      rule: '!has(oldSelf.providerID) || has(self.providerID)'
+                    - message: IP is required once set
+                      rule: '!has(oldSelf.ip) || has(self.ip)'
                 required:
                 - spec
                 type: object

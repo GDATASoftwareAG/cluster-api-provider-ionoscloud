@@ -3,6 +3,7 @@ package testing
 import (
 	"context"
 	"fmt"
+	"github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/api/v1alpha1"
 	"github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/internal/ionos"
 	ionoscloud "github.com/ionos-cloud/sdk-go/v6"
 	"github.com/pkg/errors"
@@ -11,7 +12,7 @@ import (
 	"strings"
 )
 
-var _ ionos.IONOSClient = (*FakeClient)(nil)
+var _ ionos.Client = (*FakeClient)(nil)
 
 func NewFakeClient() *FakeClient {
 	return &FakeClient{
@@ -236,7 +237,7 @@ func (f FakeClient) GetServer(_ context.Context, datacenterId, serverId string) 
 		nil
 }
 
-func (f FakeClient) CreateDatacenter(_ context.Context, name, location string) (ionoscloud.Datacenter, *ionoscloud.APIResponse, error) {
+func (f FakeClient) CreateDatacenter(_ context.Context, name string, location v1alpha1.Location) (ionoscloud.Datacenter, *ionoscloud.APIResponse, error) {
 	uid := string(uuid.NewUUID())
 	dc := ionoscloud.Datacenter{
 		Id: ionoscloud.ToPtr(uid),
@@ -255,7 +256,7 @@ func (f FakeClient) CreateDatacenter(_ context.Context, name, location string) (
 			},
 		},
 		Properties: &ionoscloud.DatacenterProperties{
-			Location: ionoscloud.ToPtr(location),
+			Location: ionoscloud.ToPtr(location.String()),
 			Name:     ionoscloud.ToPtr(name),
 		},
 	}

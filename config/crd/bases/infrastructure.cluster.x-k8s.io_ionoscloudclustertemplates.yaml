@@ -39,41 +39,12 @@ spec:
               template:
                 properties:
                   spec:
-                    description: IONOSCloudClusterSpec defines the desired state of
-                      IONOSCloudCluster
                     properties:
-                      controlPlaneEndpoint:
-                        description: APIEndpoint represents a reachable Kubernetes
-                          API endpoint.
-                        properties:
-                          host:
-                            description: The hostname on which the API server is serving.
-                            type: string
-                          port:
-                            description: The port on which the API server is serving.
-                            format: int32
-                            type: integer
-                        required:
-                        - host
-                        - port
-                        type: object
-                      dataCenterID:
-                        type: string
                       identityName:
+                        minLength: 1
                         type: string
-                      internetLanID:
-                        format: int32
-                        type: integer
-                      loadBalancerID:
-                        type: string
-                      location:
-                        type: string
-                      privateLanID:
-                        format: int32
-                        type: integer
-                      publicLanID:
-                        format: int32
-                        type: integer
+                    required:
+                    - identityName
                     type: object
                 required:
                 - spec

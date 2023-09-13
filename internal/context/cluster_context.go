@@ -16,7 +16,7 @@ type ClusterContext struct {
 	IONOSCloudCluster *v1alpha1.IONOSCloudCluster
 	PatchHelper       *patch.Helper
 	Logger            logr.Logger
-	IONOSClient       ionos.IONOSClient
+	IONOSClient       ionos.Client
 }
 
 // String returns IONOSCloudClusterGroupVersionKind IONOSCloudClusterNamespace/IONOSCloudClusterName.

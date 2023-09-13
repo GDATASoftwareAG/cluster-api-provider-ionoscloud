@@ -358,7 +358,7 @@ func (r *IONOSCloudMachineReconciler) reconcileServer(ctx *context.MachineContex
 			Properties: &ionoscloud.ServerProperties{
 
 				Cores:     ctx.IONOSCloudMachine.Spec.Cores,
-				CpuFamily: ionoscloud.ToPtr("INTEL_SKYLAKE"),
+				CpuFamily: ctx.IONOSCloudMachine.Spec.CpuFamily,
 				Name:      ionoscloud.ToPtr(ctx.IONOSCloudMachine.Name),
 				Ram:       ctx.IONOSCloudMachine.Spec.Ram,
 				Type:      ionoscloud.ToPtr("ENTERPRISE"),

@@ -37,6 +37,7 @@ spec:
               IONOSCloudClusterIdentity
             properties:
               hostUrl:
+                minLength: 1
                 type: string
               secretName:
                 description: SecretName references a Secret inside the controller
@@ -45,6 +46,7 @@ spec:
                 type: string
             required:
             - hostUrl
+            - secretName
             type: object
           status:
             description: IONOSCloudClusterIdentityStatus defines the observed state

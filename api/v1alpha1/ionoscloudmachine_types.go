@@ -28,62 +28,50 @@ const (
 	// ServerCreationFailedReason (Severity=Error) documents a controller detecting
 	// issues with the creation of the Server.
 	ServerCreationFailedReason = "ServerCreationFailed"
-
-	// VolumeCreatedCondition documents the creation of the Volume
-	VolumeCreatedCondition clusterv1.ConditionType = "VolumeCreated"
-
-	// VolumeCreationFailedReason (Severity=Error) documents a controller detecting
-	// issues with the creation of the Volume.
-	VolumeCreationFailedReason = "VolumeCreationFailed"
-
-	// NicCreatedCondition documents the creation of the Nic
-	NicCreatedCondition clusterv1.ConditionType = "NicCreated"
-
-	// NicCreationFailedReason (Severity=Error) documents a controller detecting
-	// issues with the creation of the Nic.
-	NicCreationFailedReason = "NicCreationFailed"
 )
 
 // IONOSCloudMachineSpec defines the desired state of IONOSCloudMachine
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.providerID) || has(self.providerID)", message="ProviderID is required once set"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.ip) || has(self.ip)", message="IP is required once set"
 type IONOSCloudMachineSpec struct {
-	// The availability zone in which the server should be provisioned.
-	AvailabilityZone *string `json:"availabilityZone,omitempty"`
-	// The total number of cores for the enterprise server.
-	Cores *int32 `json:"cores,omitempty"`
-	// CPU architecture on which server gets provisioned; not all CPU architectures are available in all datacenter regions; available CPU architectures can be retrieved from the datacenter resource; must not be provided for CUBE servers.
-	CpuFamily *string `json:"cpuFamily,omitempty"`
 	// The name of the  resource.
 	Name *string `json:"name,omitempty"`
-	// The placement group ID that belongs to this server; Requires system privileges
-	PlacementGroupId *string `json:"placementGroupId,omitempty"`
-	// The memory size for the enterprise server in MB, such as 2048. Size must be specified in multiples of 256 MB with a minimum of 256 MB; however, if you set ramHotPlug to TRUE then you must use a minimum of 1024 MB. If you set the RAM size more than 240GB, then ramHotPlug will be set to FALSE and can not be set to TRUE unless RAM size not set to less than 240GB.
-	Ram *int32 `json:"ram,omitempty"`
 
-	// +kubebuilder:validation:Required
+	// The availability zone in which the server should be provisioned.
+	// +kubebuilder:default=AUTO
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="AvailabilityZone is immutable"
+	AvailabilityZone *string `json:"availabilityZone,omitempty"`
+	// The total number of cores for the enterprise server.
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Cores is immutable"
+	Cores *int32 `json:"cores"`
+	// CPU architecture on which server gets provisioned; not all CPU architectures are available in all datacenter regions; available CPU architectures can be retrieved from the datacenter resource; must not be provided for CUBE servers.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="CpuFamily is immutable"
+	CpuFamily *string `json:"cpuFamily"`
+	// The memory size for the enterprise server in MB, such as 2048.
+	// +kubebuilder:validation:Minimum=256
+	// +kubebuilder:validation:MultipleOf=256
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Ram is immutable"
+	Ram        *int32          `json:"ram"`
 	BootVolume IONOSVolumeSpec `json:"bootVolume"`
 
-	// primary ip of the virtual machine.
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="IP is immutable"
 	IP *string `json:"ip,omitempty"`
-
-	ProviderID         string `json:"providerID,omitempty"`
-	NetworkInterfaceID string `json:"networkInterfaceID,omitempty"`
-	VolumeID           string `json:"volumeID,omitempty"`
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="ProviderID is immutable"
+	ProviderID string `json:"providerID,omitempty"`
 }
 
-//func (s *IONOSCloudMachineSpec) UnprefixedProviderId() string {
-//	if strings.HasPrefix(s.ProviderID, "ionos://") {
-//		return s.ProviderID[8:]
-//	} else {
-//		return s.ProviderID
-//	}
-//}
-
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.sshKeys) || has(self.sshKeys)", message="SSHKeys is required once set"
 type IONOSVolumeSpec struct {
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Type is immutable"
 	Type string `json:"type"`
-	// +kubebuilder:validation:Required
-	Size  string `json:"size"`
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Size is immutable"
+	Size string `json:"size"`
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Image is immutable"
 	Image string `json:"image"`
 	// Public SSH keys are set on the image as authorized keys for appropriate SSH login to the instance using the corresponding private key. This field may only be set in creation requests. When reading, it always returns null. SSH keys are only supported if a public Linux image is used for the volume creation.
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="SSHKeys is immutable"
 	SSHKeys *[]string `json:"sshKeys,omitempty"`
 }
 

@@ -134,7 +134,6 @@ func (r *IONOSCloudClusterReconciler) Reconcile(ctx goctx.Context, req ctrl.Requ
 func (r *IONOSCloudClusterReconciler) reconcileDelete(ctx *context.ClusterContext) (reconcile.Result, error) {
 	ctx.Logger.Info("Deleting IONOSCloudCluster")
 	if ctx.IONOSCloudCluster.Spec.DataCenterID != "" {
-
 		resp, err := ctx.IONOSClient.DeleteDatacenter(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID)
 		if err != nil && resp.StatusCode != 404 {
 			return reconcile.Result{}, err

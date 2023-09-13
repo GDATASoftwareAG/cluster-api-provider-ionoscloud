@@ -160,7 +160,7 @@ func GetFakeClient(key string) *fakes.FakeClient {
 	return FakeClients[key]
 }
 
-func NewFakeAPIClient(_, _, _, host string) ionos.IONOSClient {
+func NewFakeAPIClient(_, _, _, host string) ionos.Client {
 	return GetFakeClient(host)
 }
 

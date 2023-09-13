@@ -50,22 +50,64 @@ spec:
                 type: object
               dataCenterID:
                 type: string
+                x-kubernetes-validations:
+                - message: DataCenterID is immutable
+                  rule: self == oldSelf
               identityName:
+                minLength: 1
                 type: string
               internetLanID:
                 format: int32
                 type: integer
+                x-kubernetes-validations:
+                - message: InternetLanID is immutable
+                  rule: self == oldSelf
               loadBalancerID:
                 type: string
+                x-kubernetes-validations:
+                - message: LoadBalancerID is immutable
+                  rule: self == oldSelf
               location:
+                enum:
+                - es/vlt
+                - fr/par
+                - de/txl
+                - de/fra
+                - gb-lhr
+                - us-ewr
+                - us-las
                 type: string
+                x-kubernetes-validations:
+                - message: Location is immutable
+                  rule: self == oldSelf
               privateLanID:
                 format: int32
                 type: integer
+                x-kubernetes-validations:
+                - message: PrivateLanID is immutable
+                  rule: self == oldSelf
               publicLanID:
                 format: int32
                 type: integer
+                x-kubernetes-validations:
+                - message: PublicLanID is immutable
+                  rule: self == oldSelf
+            required:
+            - controlPlaneEndpoint
+            - identityName
+            - location
             type: object
+            x-kubernetes-validations:
+            - message: DataCenterID is required once set
+              rule: '!has(oldSelf.dataCenterID) || has(self.dataCenterID)'
+            - message: LoadBalancerID is required once set
+              rule: '!has(oldSelf.loadBalancerID) || has(self.loadBalancerID)'
+            - message: PublicLanID is required once set
+              rule: '!has(oldSelf.publicLanID) || has(self.publicLanID)'
+            - message: InternetLanID is required once set
+              rule: '!has(oldSelf.internetLanID) || has(self.internetLanID)'
+            - message: PrivateLanID is required once set
+              rule: '!has(oldSelf.privateLanID) || has(self.privateLanID)'
           status:
             description: IONOSCloudClusterStatus defines the observed state of IONOSCloudCluster
             properties:

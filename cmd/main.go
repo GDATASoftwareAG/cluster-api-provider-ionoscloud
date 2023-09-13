@@ -119,14 +119,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&infrastructurev1alpha1.IONOSCloudCluster{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "IONOSCloudCluster")
-		os.Exit(1)
-	}
-	if err = (&infrastructurev1alpha1.IONOSCloudMachine{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "IONOSCloudMachine")
-		os.Exit(1)
-	}
 	if err = (&controller.IONOSCloudClusterIdentityReconciler{
 		ControllerContext: &context.ControllerContext{
 			Context:            goctx.Background(),

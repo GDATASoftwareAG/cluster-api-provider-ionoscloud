@@ -131,9 +131,14 @@ var _ = Describe("IONOSCloudMachine controller", func() {
 				Namespace: namespace,
 			},
 			Spec: v1alpha1.IONOSCloudMachineSpec{
+				Cores:     ionoscloud.ToPtr(int32(2)),
+				CpuFamily: ionoscloud.ToPtr("INTEL_SKYLAKE"),
+				Ram:       ionoscloud.ToPtr(int32(2048)),
 				BootVolume: v1alpha1.IONOSVolumeSpec{
 					Size: "2048",
 				},
+				IP:         nil,
+				ProviderID: "",
 			},
 		}
 		identitySecret = &v1.Secret{

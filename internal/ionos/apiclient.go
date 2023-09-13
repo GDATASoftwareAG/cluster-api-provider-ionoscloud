@@ -3,14 +3,21 @@ package ionos
 import (
 	"context"
 	"fmt"
+	"github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/api/v1alpha1"
 	ionoscloud "github.com/ionos-cloud/sdk-go/v6"
 	"strings"
+	"sync"
 )
 
-var _ IONOSClient = (*APIClient)(nil)
+var _ Client = (*APIClient)(nil)
+
+var (
+	clients = map[string]*ionoscloud.APIClient{}
+	mutex   = sync.Mutex{}
+)
 
 type DatacenterAPI interface {
-	CreateDatacenter(ctx context.Context, name, location string) (ionoscloud.Datacenter, *ionoscloud.APIResponse, error)
+	CreateDatacenter(ctx context.Context, name string, location v1alpha1.Location) (ionoscloud.Datacenter, *ionoscloud.APIResponse, error)
 	GetDatacenter(ctx context.Context, datacenterId string) (ionoscloud.Datacenter, *ionoscloud.APIResponse, error)
 	DeleteDatacenter(ctx context.Context, datacenterId string) (*ionoscloud.APIResponse, error)
 }
@@ -41,7 +48,7 @@ type ServerAPI interface {
 	DeleteServer(ctx context.Context, datacenterId, serverId string) (*ionoscloud.APIResponse, error)
 }
 
-type IONOSClient interface {
+type Client interface {
 	DatacenterAPI
 	LanAPI
 	LoadBalancerAPI
@@ -50,12 +57,20 @@ type IONOSClient interface {
 	VolumeAPI
 }
 
-func NewAPIClient(username, password, token, host string) IONOSClient {
-	// TODO: do not create a new client for each reconcile
-	cfg := ionoscloud.NewConfiguration(username, password, token, host)
+func NewAPIClient(username, password, token, host string) Client {
+	mutex.Lock()
+	defer func() {
+		mutex.Unlock()
+	}()
+
+	key := fmt.Sprintf("%s|%s|%s|%s", username, password, token, host)
+	if _, ok := clients[key]; !ok {
+		cfg := ionoscloud.NewConfiguration(username, password, token, host)
+		clients[key] = ionoscloud.NewAPIClient(cfg)
+	}
 
 	return &APIClient{
-		client: ionoscloud.NewAPIClient(cfg),
+		client: clients[key],
 	}
 }
 
@@ -80,10 +95,10 @@ func (c *APIClient) DeleteDatacenter(ctx context.Context, datacenterId string) (
 	return c.client.DataCentersApi.DatacentersDelete(ctx, datacenterId).Execute()
 }
 
-func (c *APIClient) CreateDatacenter(ctx context.Context, name, location string) (ionoscloud.Datacenter, *ionoscloud.APIResponse, error) {
+func (c *APIClient) CreateDatacenter(ctx context.Context, name string, location v1alpha1.Location) (ionoscloud.Datacenter, *ionoscloud.APIResponse, error) {
 	datacenter := ionoscloud.Datacenter{
 		Properties: &ionoscloud.DatacenterProperties{
-			Location: &location,
+			Location: ionoscloud.ToPtr(location.String()),
 			Name:     &name,
 		},
 	}

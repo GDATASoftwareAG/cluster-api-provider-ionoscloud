@@ -129,6 +129,11 @@ var _ = Describe("IONOSCloudCluster controller", func() {
 						clusterv1.ClusterNameLabel: CAPIClusterName,
 					},
 				},
+				Spec: v1alpha1.IONOSCloudMachineSpec{
+					Cores:     ionoscloud.ToPtr(int32(2)),
+					CpuFamily: ionoscloud.ToPtr("INTEL_SKYLAKE"),
+					Ram:       ionoscloud.ToPtr(int32(2048)),
+				},
 			}
 			Expect(k8sClient.Create(ctx, machine)).Should(Succeed())
 			lookupKey := types.NamespacedName{Name: machineName, Namespace: namespace}

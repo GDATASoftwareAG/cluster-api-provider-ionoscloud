@@ -33,8 +33,9 @@ const (
 type IONOSCloudClusterIdentitySpec struct {
 	// SecretName references a Secret inside the controller namespace with the credentials to use
 	// +kubebuilder:validation:MinLength=1
-	SecretName string `json:"secretName,omitempty"`
-	HostUrl    string `json:"hostUrl"`
+	SecretName string `json:"secretName"`
+	// +kubebuilder:validation:MinLength=1
+	HostUrl string `json:"hostUrl"`
 }
 
 // IONOSCloudClusterIdentityStatus defines the observed state of IONOSCloudClusterIdentity
