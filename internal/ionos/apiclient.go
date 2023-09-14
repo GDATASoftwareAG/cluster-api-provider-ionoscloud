@@ -147,7 +147,9 @@ func (c *APIClient) PatchLoadBalancerForwardingRule(ctx context.Context, datacen
 
 func (c *APIClient) CreateServer(ctx context.Context, datacenterId string, server ionoscloud.Server) (ionoscloud.Server, *ionoscloud.APIResponse, error) {
 	serverReq := c.client.ServersApi.DatacentersServersPost(ctx, datacenterId)
-	return serverReq.Server(server).Execute()
+	server, response, err := serverReq.Server(server).Execute()
+	server.Id = ionoscloud.ToPtr(fmt.Sprintf("ionos://%s", server.Id))
+	return server, response, err
 }
 
 func (c *APIClient) GetServer(ctx context.Context, datacenterId, serverId string) (ionoscloud.Server, *ionoscloud.APIResponse, error) {
