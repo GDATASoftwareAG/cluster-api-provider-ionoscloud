@@ -201,5 +201,36 @@ var _ = Describe("IONOSCloudMachine controller", func() {
 				return 0
 			}, timeout, interval).Should(Equal(1))
 		})
+
+		It("should not be possible to change immutable fields", func() {
+			capicMachine.Spec.Ram = ionoscloud.ToPtr(int32(256))
+			err := k8sClient.Update(ctx, capicMachine)
+			Expect(err).Should(HaveOccurred())
+		})
+	})
+
+	When("IONOSCloudMachine has been created", func() {
+		BeforeEach(func() {
+			ctx := context.Background()
+			Expect(k8sClient.Create(ctx, capicMachine)).Should(Succeed())
+		})
+
+		It("ProviderID can be updated only once", func() {
+			capicMachine.Spec.ProviderID = string(uuid.NewUUID())
+			err := k8sClient.Update(ctx, capicMachine)
+			Expect(err).ShouldNot(HaveOccurred())
+			capicMachine.Spec.ProviderID = string(uuid.NewUUID())
+			err = k8sClient.Update(ctx, capicMachine)
+			Expect(err).Should(HaveOccurred())
+		})
+	})
+
+	When("IONOSCloudMachine has invalid spec", func() {
+		It("should not be created", func() {
+			ctx := context.Background()
+			capicMachine.Spec.Ram = ionoscloud.ToPtr(int32(255))
+			err := k8sClient.Create(ctx, capicMachine)
+			Expect(err).Should(HaveOccurred())
+		})
 	})
 })

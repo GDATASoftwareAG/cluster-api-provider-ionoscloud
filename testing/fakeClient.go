@@ -233,9 +233,9 @@ func (f FakeClient) GetServer(_ context.Context, datacenterId, serverId string) 
 	}
 
 	return ionoscloud.Server{}, &ionoscloud.APIResponse{Response: &http.Response{
-			StatusCode: http.StatusOK,
+			StatusCode: http.StatusNotFound,
 		}},
-		nil
+		errors.New("not found")
 }
 
 func (f FakeClient) CreateDatacenter(_ context.Context, name string, location v1alpha1.Location) (ionoscloud.Datacenter, *ionoscloud.APIResponse, error) {
