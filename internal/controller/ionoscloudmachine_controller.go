@@ -187,7 +187,7 @@ func (r *IONOSCloudMachineReconciler) reconcileDelete(ctx *context.MachineContex
 			if rules, _, err := ctx.IONOSClient.GetLoadBalancerForwardingRules(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudCluster.Spec.LoadBalancerID); err != nil {
 				return reconcile.Result{}, err
 			} else {
-				desiredTarget := ionoscloud.NetworkLoadBalancerForwardingRuleTarget{
+				targetToDelete := ionoscloud.NetworkLoadBalancerForwardingRuleTarget{
 					Ip:     ctx.IONOSCloudMachine.Spec.IP,
 					Port:   ionoscloud.PtrInt32(6443),
 					Weight: ionoscloud.PtrInt32(1),
@@ -199,9 +199,9 @@ func (r *IONOSCloudMachineReconciler) reconcileDelete(ctx *context.MachineContex
 					}
 
 					for _, target := range *rule.Properties.Targets {
-						if *target.Ip == *desiredTarget.Ip {
+						if *target.Ip == *targetToDelete.Ip {
 							targets := *rule.Properties.Targets
-							targets = append(targets, desiredTarget)
+							targets = findAndDeleteByIP(targets, targetToDelete)
 							properties := ionoscloud.NetworkLoadBalancerForwardingRuleProperties{
 								Algorithm:    rule.Properties.Algorithm,
 								HealthCheck:  rule.Properties.HealthCheck,
@@ -469,4 +469,15 @@ func (r *IONOSCloudMachineReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&v1alpha1.IONOSCloudMachine{}).
 		WithEventFilter(predicates.ResourceIsNotExternallyManaged(r.Logger)).
 		Complete(r)
+}
+
+func findAndDeleteByIP(s []ionoscloud.NetworkLoadBalancerForwardingRuleTarget, item ionoscloud.NetworkLoadBalancerForwardingRuleTarget) []ionoscloud.NetworkLoadBalancerForwardingRuleTarget {
+	index := 0
+	for _, i := range s {
+		if *i.Ip != *item.Ip {
+			s[index] = i
+			index++
+		}
+	}
+	return s[:index]
 }
