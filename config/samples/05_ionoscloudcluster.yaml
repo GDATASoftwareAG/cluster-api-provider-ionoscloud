@@ -1,0 +1,18 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+kind: IONOSCloudCluster
+metadata:
+  labels:
+    cluster.x-k8s.io/cluster-name: ionoscloud-local-matthias
+  name: ionoscloud-local-matthias
+  namespace: default
+spec:
+  allNodesPublicLanID: 4
+  controlPlaneEndpoint:
+    host: 85.215.201.63
+    port: 6443
+  controlPlanePrivateLanID: 3
+  dataCenterID: 663faef8-42cb-4925-8823-f80fb8d7a91f
+  identityName: ionos-identity
+  loadBalancerID: 757d9605-adf3-4b8a-b937-636d67ce4c7c
+  loadBalancerPublicLanID: 2
+  location: de/txl

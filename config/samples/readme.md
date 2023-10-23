@@ -59,7 +59,7 @@ metadata:
 spec:
   containers:
     - name: myfrontend
-      image: nginx
+      image: docker.io/nginx
       volumeMounts:
         - mountPath: "/var/www/html"
           name: mypd

@@ -1,7 +1,7 @@
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: Cluster
 metadata:
-  name: ionoscloudcluster
+  name: ionoscloud-local-matthias
 spec:
   clusterNetwork:
     pods:
@@ -13,8 +13,8 @@ spec:
   controlPlaneRef:
     apiVersion: controlplane.cluster.x-k8s.io/v1beta1
     kind: KubeadmControlPlane
-    name: ionoscloudcluster
+    name: ionoscloud-local-matthias
   infrastructureRef:
     apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
     kind: IONOSCloudCluster
-    name: ionoscloudcluster
+    name: ionoscloud-local-matthias

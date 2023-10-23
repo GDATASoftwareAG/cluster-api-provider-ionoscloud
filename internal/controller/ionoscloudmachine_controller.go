@@ -27,6 +27,7 @@ import (
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	apitypes "k8s.io/apimachinery/pkg/types"
 	"net/http"
@@ -49,6 +50,10 @@ import (
 type IONOSCloudMachineReconciler struct {
 	*context.ControllerContext
 }
+
+const (
+	serverCreationTimeout = 5 * time.Minute
+)
 
 //+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch
 //+kubebuilder:rbac:groups=cluster.x-k8s.io,resources=machines,verbs=get;list;watch;create;update;patch;delete
@@ -220,13 +225,12 @@ func (r *IONOSCloudMachineReconciler) reconcileDelete(ctx *context.MachineContex
 							); err != nil {
 								return reconcile.Result{}, err
 							}
-
+							conditions.MarkFalse(ctx.IONOSCloudCluster, v1alpha1.LoadBalancerForwardingRuleCreatedCondition, "LoadBalancerRuleDeleted", clusterv1.ConditionSeverityInfo, "")
 						}
 					}
 				}
 			}
 		}
-
 		conditions.MarkFalse(ctx.IONOSCloudCluster, v1alpha1.ServerCreatedCondition, "ServerDeleted", clusterv1.ConditionSeverityInfo, "")
 		ctrlutil.RemoveFinalizer(ctx.IONOSCloudMachine, v1alpha1.MachineFinalizer)
 	}
@@ -317,25 +321,35 @@ func (r *IONOSCloudMachineReconciler) reconcileServer(ctx *context.MachineContex
 			return &reconcile.Result{}, errors.Wrapf(err, "invalid spec.bootvolume.disksize")
 		}
 
+		nics := []ionoscloud.Nic{
+			{
+				Properties: &ionoscloud.NicProperties{
+					Dhcp: ionoscloud.ToPtr(true),
+					Lan:  ctx.IONOSCloudCluster.Spec.AllNodesPrivateLanID,
+					Name: ionoscloud.ToPtr(fmt.Sprintf("%s-nic-nodes", ctx.IONOSCloudMachine.Name)),
+				},
+			},
+			{
+				Properties: &ionoscloud.NicProperties{
+					Dhcp: ionoscloud.ToPtr(true),
+					Lan:  ctx.IONOSCloudCluster.Spec.AllNodesPublicLanID,
+					Name: ionoscloud.ToPtr(fmt.Sprintf("%s-nic-internet", ctx.IONOSCloudMachine.Name)),
+				},
+			},
+		}
+
+		if clusterutilv1.IsControlPlaneMachine(ctx.Machine) {
+			nics = append(nics, ionoscloud.Nic{Properties: &ionoscloud.NicProperties{
+				Dhcp: ionoscloud.ToPtr(true),
+				Lan:  ctx.IONOSCloudCluster.Spec.ControlPlanePrivateLanID,
+				Name: ionoscloud.ToPtr(fmt.Sprintf("%s-nic-lb", ctx.IONOSCloudMachine.Name)),
+			}})
+		}
+
 		server := ionoscloud.Server{
 			Entities: &ionoscloud.ServerEntities{
 				Nics: &ionoscloud.Nics{
-					Items: &[]ionoscloud.Nic{
-						{
-							Properties: &ionoscloud.NicProperties{
-								Dhcp: ionoscloud.ToPtr(true),
-								Lan:  ctx.IONOSCloudCluster.Spec.PrivateLanID,
-								Name: ionoscloud.ToPtr(fmt.Sprintf("%s-nic-lb", ctx.IONOSCloudMachine.Name)),
-							},
-						},
-						{
-							Properties: &ionoscloud.NicProperties{
-								Dhcp: ionoscloud.ToPtr(true),
-								Lan:  ctx.IONOSCloudCluster.Spec.InternetLanID,
-								Name: ionoscloud.ToPtr(fmt.Sprintf("%s-nic-internet", ctx.IONOSCloudMachine.Name)),
-							},
-						},
-					},
+					Items: &nics,
 				},
 				Volumes: &ionoscloud.AttachedVolumes{
 					Items: &[]ionoscloud.Volume{
@@ -356,7 +370,6 @@ func (r *IONOSCloudMachineReconciler) reconcileServer(ctx *context.MachineContex
 				},
 			},
 			Properties: &ionoscloud.ServerProperties{
-
 				Cores:     ctx.IONOSCloudMachine.Spec.Cores,
 				CpuFamily: ctx.IONOSCloudMachine.Spec.CpuFamily,
 				Name:      ionoscloud.ToPtr(ctx.IONOSCloudMachine.Name),
@@ -369,31 +382,43 @@ func (r *IONOSCloudMachineReconciler) reconcileServer(ctx *context.MachineContex
 			return &reconcile.Result{}, errors.Wrapf(err, "error creating server %v", server)
 		}
 		ctx.IONOSCloudMachine.Spec.ProviderID = *server.Id
+		conditions.MarkUnknown(ctx.IONOSCloudMachine, v1alpha1.ServerCreatedCondition, "Provisioning", "Waiting for the resource to be provisioned")
 	}
 
-	// check status
 	server, resp, err := ctx.IONOSClient.GetServer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.ProviderID)
 
-	if err != nil && resp.StatusCode != http.StatusNotFound {
+	if err != nil {
+		if resp.StatusCode == http.StatusNotFound {
+			cond := conditions.Get(ctx.IONOSCloudMachine, v1alpha1.ServerCreatedCondition)
+			timeout := metav1.NewTime(time.Now().Add(-1 * serverCreationTimeout))
+			if cond.LastTransitionTime.Before(&timeout) {
+				return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy},
+					fmt.Errorf("it already takes more than %s to provision the server", serverCreationTimeout)
+			} else {
+				return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, nil
+			}
+		}
 		return &reconcile.Result{}, errors.Wrap(err, "error getting server")
 	}
 
-	if resp.StatusCode == http.StatusNotFound || (server.Metadata != nil && *server.Metadata.State == STATE_BUSY) {
-		return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, errors.New("server not yet created")
+	// check if resource is still provisioning
+	if server.Metadata != nil && *server.Metadata.State == STATE_BUSY {
+		return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy},
+			errors.New("server is still provisioning")
 	}
 
-	nics := *server.Entities.Nics.Items
-	for _, nic := range nics {
-		if strings.HasSuffix(*nic.Properties.Name, "-nic-lb") {
-			ips := *nic.Properties.Ips
-			ctx.IONOSCloudMachine.Spec.IP = &ips[0]
+	if clusterutilv1.IsControlPlaneMachine(ctx.Machine) {
+		nics := *server.Entities.Nics.Items
+		for _, nic := range nics {
+			if strings.HasSuffix(*nic.Properties.Name, "-nic-lb") {
+				ips := *nic.Properties.Ips
+				ctx.IONOSCloudMachine.Spec.IP = &ips[0]
+			}
+		}
+		if ctx.IONOSCloudMachine.Spec.IP == nil {
+			return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, errors.New("server does not have an ip yet")
 		}
 	}
-
-	if ctx.IONOSCloudMachine.Spec.IP == nil {
-		return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, errors.New("server does not have an ip yet")
-	}
-
 	conditions.MarkTrue(ctx.IONOSCloudMachine, v1alpha1.ServerCreatedCondition)
 
 	return nil, nil

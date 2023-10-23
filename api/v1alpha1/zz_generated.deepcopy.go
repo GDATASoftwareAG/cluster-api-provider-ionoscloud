@@ -185,18 +185,23 @@ func (in *IONOSCloudClusterList) DeepCopyObject() runtime.Object {
 func (in *IONOSCloudClusterSpec) DeepCopyInto(out *IONOSCloudClusterSpec) {
 	*out = *in
 	out.ControlPlaneEndpoint = in.ControlPlaneEndpoint
-	if in.PublicLanID != nil {
-		in, out := &in.PublicLanID, &out.PublicLanID
+	if in.LoadBalancerPublicLanID != nil {
+		in, out := &in.LoadBalancerPublicLanID, &out.LoadBalancerPublicLanID
 		*out = new(int32)
 		**out = **in
 	}
-	if in.InternetLanID != nil {
-		in, out := &in.InternetLanID, &out.InternetLanID
+	if in.AllNodesPublicLanID != nil {
+		in, out := &in.AllNodesPublicLanID, &out.AllNodesPublicLanID
 		*out = new(int32)
 		**out = **in
 	}
-	if in.PrivateLanID != nil {
-		in, out := &in.PrivateLanID, &out.PrivateLanID
+	if in.AllNodesPrivateLanID != nil {
+		in, out := &in.AllNodesPrivateLanID, &out.AllNodesPrivateLanID
+		*out = new(int32)
+		**out = **in
+	}
+	if in.ControlPlanePrivateLanID != nil {
+		in, out := &in.ControlPlanePrivateLanID, &out.ControlPlanePrivateLanID
 		*out = new(int32)
 		**out = **in
 	}

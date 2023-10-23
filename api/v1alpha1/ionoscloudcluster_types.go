@@ -51,26 +51,33 @@ const (
 	// issues with the creation of the datacenter.
 	DataCenterCreationFailedReason = "DataCenterCreationFailed"
 
-	// PublicLanCreatedCondition documents the creation of the Lan
-	PublicLanCreatedCondition clusterv1.ConditionType = "PublicLanCreated"
+	// LoadBalancerPublicLanCreatedCondition documents the creation of the Lan
+	LoadBalancerPublicLanCreatedCondition clusterv1.ConditionType = "LoadBalancerPublicLanCreated"
 
-	// PublicLanCreationFailedReason (Severity=Error) documents a controller detecting
+	// LoadBalancerPublicLanCreationFailedReason (Severity=Error) documents a controller detecting
 	// issues with the creation of the Lan.
-	PublicLanCreationFailedReason = "PublicLanCreationFailed"
+	LoadBalancerPublicLanCreationFailedReason = "LoadBalancerPublicLanCreationFailed"
 
-	// PrivateLanCreatedCondition documents the creation of the Lan
-	PrivateLanCreatedCondition clusterv1.ConditionType = "PrivateLanCreated"
+	// AllNodesPrivateLanCreatedCondition documents the creation of the Lan
+	AllNodesPrivateLanCreatedCondition clusterv1.ConditionType = "AllNodesPrivateLanCreated"
 
-	// PrivateLanCreationFailedReason (Severity=Error) documents a controller detecting
+	// AllNodesPrivateLanCreationFailedReason (Severity=Error) documents a controller detecting
 	// issues with the creation of the Lan.
-	PrivateLanCreationFailedReason = "PrivateLanCreationFailed"
+	AllNodesPrivateLanCreationFailedReason = "AllNodesPrivateLanCreationFailed"
 
-	// InternetLanCreatedCondition documents the creation of the Lan
-	InternetLanCreatedCondition clusterv1.ConditionType = "InternetLanCreated"
+	// AllNodesPublicLanCreatedCondition documents the creation of the Lan
+	AllNodesPublicLanCreatedCondition clusterv1.ConditionType = "AllNodesPublicLanCreated"
 
-	// InternetLanCreationFailedReason (Severity=Error) documents a controller detecting
+	// AllNodesPublicLanCreationFailedReason (Severity=Error) documents a controller detecting
 	// issues with the creation of the Lan.
-	InternetLanCreationFailedReason = "InternetLanCreationFailed"
+	AllNodesPublicLanCreationFailedReason = "AllNodesPublicLanCreationFailed"
+
+	// ControlPlanesPrivateLanCreatedCondition documents the creation of the Lan
+	ControlPlanesPrivateLanCreatedCondition clusterv1.ConditionType = "ControlPlanesPrivateLanCreated"
+
+	// ControlPlanesPrivateLanCreationFailedReason (Severity=Error) documents a controller detecting
+	// issues with the creation of the Lan.
+	ControlPlanesPrivateLanCreationFailedReason = "ControlPlanesPrivateLanCreationFailed"
 
 	// LoadBalancerForwardingRuleCreatedCondition documents the creation of the ForwardingRule
 	LoadBalancerForwardingRuleCreatedCondition clusterv1.ConditionType = "LoadBalancerForwardingRuleCreated"
@@ -90,9 +97,10 @@ func (r Location) String() string {
 // IONOSCloudClusterSpec defines the desired state of IONOSCloudCluster
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.dataCenterID) || has(self.dataCenterID)", message="DataCenterID is required once set"
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.loadBalancerID) || has(self.loadBalancerID)", message="LoadBalancerID is required once set"
-// +kubebuilder:validation:XValidation:rule="!has(oldSelf.publicLanID) || has(self.publicLanID)", message="PublicLanID is required once set"
-// +kubebuilder:validation:XValidation:rule="!has(oldSelf.internetLanID) || has(self.internetLanID)", message="InternetLanID is required once set"
-// +kubebuilder:validation:XValidation:rule="!has(oldSelf.privateLanID) || has(self.privateLanID)", message="PrivateLanID is required once set"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.loadBalancerPublicLanID) || has(self.loadBalancerPublicLanID)", message="LoadBalancerPublicLanID is required once set"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.allNodesPublicLanID) || has(self.allNodesPublicLanID)", message="AllNodesPublicLanID is required once set"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.allNodesPrivateLanID) || has(self.allNodesPrivateLanID)", message="AllNodesPrivateLanID is required once set"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.controlPlanePrivateLanID) || has(self.controlPlanePrivateLanID)", message="ControlPlanePrivateLanID is required once set"
 type IONOSCloudClusterSpec struct {
 
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Location is immutable"
@@ -106,12 +114,14 @@ type IONOSCloudClusterSpec struct {
 	DataCenterID string `json:"dataCenterID,omitempty"`
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="LoadBalancerID is immutable"
 	LoadBalancerID string `json:"loadBalancerID,omitempty"`
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="PublicLanID is immutable"
-	PublicLanID *int32 `json:"publicLanID,omitempty"`
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="InternetLanID is immutable"
-	InternetLanID *int32 `json:"internetLanID,omitempty"`
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="PrivateLanID is immutable"
-	PrivateLanID *int32 `json:"privateLanID,omitempty"`
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="LoadBalancerPublicLanID is immutable"
+	LoadBalancerPublicLanID *int32 `json:"loadBalancerPublicLanID,omitempty"`
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="AllNodesPublicLanID is immutable"
+	AllNodesPublicLanID *int32 `json:"allNodesPublicLanID,omitempty"`
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="AllNodesPrivateLanID is immutable"
+	AllNodesPrivateLanID *int32 `json:"allNodesPrivateLanID,omitempty"`
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="AllNodesPrivateLanID is immutable"
+	ControlPlanePrivateLanID *int32 `json:"controlPlanePrivateLanID,omitempty"`
 }
 
 // IONOSCloudClusterStatus defines the observed state of IONOSCloudCluster
