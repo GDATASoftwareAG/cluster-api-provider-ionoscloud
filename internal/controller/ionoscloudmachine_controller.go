@@ -361,7 +361,7 @@ func (r *IONOSCloudMachineReconciler) reconcileServer(ctx *context.MachineContex
 				CpuFamily: ctx.IONOSCloudMachine.Spec.CpuFamily,
 				Name:      ionoscloud.ToPtr(ctx.IONOSCloudMachine.Name),
 				Ram:       ctx.IONOSCloudMachine.Spec.Ram,
-				Type:      ionoscloud.ToPtr("ENTERPRISE"),
+				Type:      ionoscloud.ToPtr(ctx.IONOSCloudMachine.Spec.Type.String()),
 			},
 		}
 		server, _, err = ctx.IONOSClient.CreateServer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, server)

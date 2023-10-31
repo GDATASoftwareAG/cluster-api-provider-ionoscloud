@@ -130,11 +130,19 @@ spec:
                         x-kubernetes-validations:
                         - message: Ram is immutable
                           rule: self == oldSelf
+                      type:
+                        default: ENTERPRISE
+                        description: The type of the VM
+                        enum:
+                        - ENTERPRISE
+                        - CUBE
+                        type: string
                     required:
                     - bootVolume
                     - cores
                     - cpuFamily
                     - ram
+                    - type
                     type: object
                     x-kubernetes-validations:
                     - message: ProviderID is required once set
