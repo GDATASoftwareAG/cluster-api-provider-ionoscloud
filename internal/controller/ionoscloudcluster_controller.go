@@ -221,6 +221,12 @@ func (r *IONOSCloudClusterReconciler) reconcilePrivateLan(ctx *context.ClusterCo
 		ctx.IONOSCloudCluster.Spec.PrivateLanID = lanID
 	}
 
+	ctx.IONOSCloudCluster.EnsureLan(v1alpha1.IONOSLanSpec{
+		Name:   "private",
+		LanID:  ctx.IONOSCloudCluster.Spec.PrivateLanID,
+		Public: false,
+	})
+
 	// check status
 	lanId := fmt.Sprint(*ctx.IONOSCloudCluster.Spec.PrivateLanID)
 	lan, resp, err := ctx.IONOSClient.GetLan(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, lanId)
@@ -248,6 +254,12 @@ func (r *IONOSCloudClusterReconciler) reconcilePublicLan(ctx *context.ClusterCon
 		ctx.IONOSCloudCluster.Spec.PublicLanID = lanID
 	}
 
+	ctx.IONOSCloudCluster.EnsureLan(v1alpha1.IONOSLanSpec{
+		Name:   "public",
+		LanID:  ctx.IONOSCloudCluster.Spec.PublicLanID,
+		Public: true,
+	})
+
 	// check status
 	lanId := fmt.Sprint(*ctx.IONOSCloudCluster.Spec.PublicLanID)
 	lan, resp, err := ctx.IONOSClient.GetLan(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, lanId)
@@ -273,6 +285,12 @@ func (r *IONOSCloudClusterReconciler) reconcileInternet(ctx *context.ClusterCont
 		}
 		ctx.IONOSCloudCluster.Spec.InternetLanID = lanID
 	}
+
+	ctx.IONOSCloudCluster.EnsureLan(v1alpha1.IONOSLanSpec{
+		Name:   "internet",
+		LanID:  ctx.IONOSCloudCluster.Spec.InternetLanID,
+		Public: true,
+	})
 
 	// check status
 	lanId := fmt.Sprint(*ctx.IONOSCloudCluster.Spec.InternetLanID)
@@ -323,6 +341,16 @@ func (r *IONOSCloudClusterReconciler) reconcileLoadBalancer(ctx *context.Cluster
 			return &reconcile.Result{}, err
 		}
 		ctx.IONOSCloudCluster.Spec.LoadBalancerID = *loadBalancer.Id
+	}
+
+	ctx.IONOSCloudCluster.Spec.LoadBalancer = &v1alpha1.IONOSLoadBalancerSpec{
+		ID: ctx.IONOSCloudCluster.Spec.LoadBalancerID,
+		ListenerLanRef: v1alpha1.IONOSLanRefSpec{
+			Name: "public",
+		},
+		TargetLanRef: v1alpha1.IONOSLanRefSpec{
+			Name: "private",
+		},
 	}
 
 	// check status

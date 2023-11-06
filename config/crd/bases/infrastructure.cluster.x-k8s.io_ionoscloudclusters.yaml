@@ -62,6 +62,43 @@ spec:
                 x-kubernetes-validations:
                 - message: InternetLanID is immutable
                   rule: self == oldSelf
+              lans:
+                items:
+                  properties:
+                    lanID:
+                      format: int32
+                      type: integer
+                    name:
+                      type: string
+                    public:
+                      type: boolean
+                  required:
+                  - name
+                  - public
+                  type: object
+                type: array
+              loadBalancer:
+                properties:
+                  id:
+                    type: string
+                  listenerLanRef:
+                    properties:
+                      name:
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  targetLanRef:
+                    properties:
+                      name:
+                        type: string
+                    required:
+                    - name
+                    type: object
+                required:
+                - listenerLanRef
+                - targetLanRef
+                type: object
               loadBalancerID:
                 type: string
                 x-kubernetes-validations:

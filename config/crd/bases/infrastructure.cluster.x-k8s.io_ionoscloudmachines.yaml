@@ -104,6 +104,22 @@ spec:
               name:
                 description: The name of the  resource.
                 type: string
+              nics:
+                items:
+                  properties:
+                    lanRef:
+                      properties:
+                        name:
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    primaryIP:
+                      type: string
+                  required:
+                  - lanRef
+                  type: object
+                type: array
               providerID:
                 type: string
                 x-kubernetes-validations:
