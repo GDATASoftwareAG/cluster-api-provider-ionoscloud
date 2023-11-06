@@ -192,11 +192,7 @@ func (in *IONOSCloudClusterSpec) DeepCopyInto(out *IONOSCloudClusterSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	if in.LoadBalancer != nil {
-		in, out := &in.LoadBalancer, &out.LoadBalancer
-		*out = new(IONOSLoadBalancerSpec)
-		**out = **in
-	}
+	out.LoadBalancer = in.LoadBalancer
 	if in.PublicLanID != nil {
 		in, out := &in.PublicLanID, &out.PublicLanID
 		*out = new(int32)

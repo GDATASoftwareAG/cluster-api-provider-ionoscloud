@@ -8,3 +8,15 @@ spec:
   controlPlaneEndpoint:
     host: "85.215.201.63"
     port: 6443
+  lans:
+    - name: private
+      public: false
+    - name: public
+      public: true
+    - name: internet
+      public: true
+  loadBalancer:
+    listenerLanRef:
+      name: public
+    targetLanRef:
+      name: private

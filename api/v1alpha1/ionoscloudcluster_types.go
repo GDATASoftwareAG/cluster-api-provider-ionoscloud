@@ -51,26 +51,12 @@ const (
 	// issues with the creation of the datacenter.
 	DataCenterCreationFailedReason = "DataCenterCreationFailed"
 
-	// PublicLanCreatedCondition documents the creation of the Lan
-	PublicLanCreatedCondition clusterv1.ConditionType = "PublicLanCreated"
+	// LanCreatedCondition documents the creation of the Lan
+	LanCreatedCondition clusterv1.ConditionType = "LanCreated"
 
-	// PublicLanCreationFailedReason (Severity=Error) documents a controller detecting
+	// LanCreationFailedReason (Severity=Error) documents a controller detecting
 	// issues with the creation of the Lan.
-	PublicLanCreationFailedReason = "PublicLanCreationFailed"
-
-	// PrivateLanCreatedCondition documents the creation of the Lan
-	PrivateLanCreatedCondition clusterv1.ConditionType = "PrivateLanCreated"
-
-	// PrivateLanCreationFailedReason (Severity=Error) documents a controller detecting
-	// issues with the creation of the Lan.
-	PrivateLanCreationFailedReason = "PrivateLanCreationFailed"
-
-	// InternetLanCreatedCondition documents the creation of the Lan
-	InternetLanCreatedCondition clusterv1.ConditionType = "InternetLanCreated"
-
-	// InternetLanCreationFailedReason (Severity=Error) documents a controller detecting
-	// issues with the creation of the Lan.
-	InternetLanCreationFailedReason = "InternetLanCreationFailed"
+	LanCreationFailedReason = "LanCreationFailed"
 
 	// LoadBalancerForwardingRuleCreatedCondition documents the creation of the ForwardingRule
 	LoadBalancerForwardingRuleCreatedCondition clusterv1.ConditionType = "LoadBalancerForwardingRuleCreated"
@@ -102,12 +88,10 @@ type IONOSCloudClusterSpec struct {
 	IdentityName string `json:"identityName"`
 	// +optional
 	ControlPlaneEndpoint clusterv1.APIEndpoint `json:"controlPlaneEndpoint"`
-	// +optional
 	// +listType=map
 	// +listMapKey=name
-	Lans []IONOSLanSpec `json:"lans,omitempty"`
-	// +optional
-	LoadBalancer *IONOSLoadBalancerSpec `json:"loadBalancer,omitempty"`
+	Lans         []IONOSLanSpec        `json:"lans"`
+	LoadBalancer IONOSLoadBalancerSpec `json:"loadBalancer"`
 
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="DataCenterID is immutable"
 	DataCenterID string `json:"dataCenterID,omitempty"`

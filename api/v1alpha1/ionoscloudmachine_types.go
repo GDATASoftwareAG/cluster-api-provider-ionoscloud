@@ -138,3 +138,15 @@ func (c *IONOSCloudMachine) EnsureNic(spec IONOSNicSpec) {
 	}
 	c.Spec.Nics = append(c.Spec.Nics, spec)
 }
+
+func (c *IONOSCloudMachine) NicByLan(name string) *IONOSNicSpec {
+	if name == "" {
+		return nil
+	}
+	for i := range c.Spec.Nics {
+		if c.Spec.Nics[i].LanRef.Name == name {
+			return &c.Spec.Nics[i]
+		}
+	}
+	return nil
+}

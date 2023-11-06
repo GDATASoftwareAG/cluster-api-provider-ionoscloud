@@ -158,23 +158,13 @@ func (r *IONOSCloudClusterReconciler) reconcileNormal(ctx *context.ClusterContex
 		return *result, err
 	}
 
-	if result, err := r.reconcilePrivateLan(ctx); err != nil {
-		conditions.MarkFalse(ctx.IONOSCloudCluster, v1alpha1.PrivateLanCreatedCondition, v1alpha1.PrivateLanCreationFailedReason, clusterv1.ConditionSeverityError, err.Error())
-		return *result, err
-	}
-
-	if result, err := r.reconcilePublicLan(ctx); err != nil {
-		conditions.MarkFalse(ctx.IONOSCloudCluster, v1alpha1.PublicLanCreatedCondition, v1alpha1.PublicLanCreationFailedReason, clusterv1.ConditionSeverityError, err.Error())
+	if result, err := r.reconcileLan(ctx); err != nil {
+		conditions.MarkFalse(ctx.IONOSCloudCluster, v1alpha1.LanCreatedCondition, v1alpha1.LanCreationFailedReason, clusterv1.ConditionSeverityError, err.Error())
 		return *result, err
 	}
 
 	if result, err := r.reconcileLoadBalancer(ctx); err != nil {
 		conditions.MarkFalse(ctx.IONOSCloudCluster, v1alpha1.LoadBalancerCreatedCondition, v1alpha1.LoadBalancerCreationFailedReason, clusterv1.ConditionSeverityError, err.Error())
-		return *result, err
-	}
-
-	if result, err := r.reconcileInternet(ctx); err != nil {
-		conditions.MarkFalse(ctx.IONOSCloudCluster, v1alpha1.InternetLanCreatedCondition, v1alpha1.InternetLanCreationFailedReason, clusterv1.ConditionSeverityError, err.Error())
 		return *result, err
 	}
 
@@ -211,107 +201,49 @@ func (r *IONOSCloudClusterReconciler) reconcileDataCenter(ctx *context.ClusterCo
 	return nil, nil
 }
 
-func (r *IONOSCloudClusterReconciler) reconcilePrivateLan(ctx *context.ClusterContext) (*reconcile.Result, error) {
-	ctx.Logger.Info("Reconciling private Lan")
-	if ctx.IONOSCloudCluster.Spec.PrivateLanID == nil {
-		lanID, err := createLan(ctx, false)
-		if err != nil {
-			return &reconcile.Result{}, errors.Wrap(err, "error creating private Lan")
+func (r *IONOSCloudClusterReconciler) reconcileLan(ctx *context.ClusterContext) (*reconcile.Result, error) {
+	for i := range ctx.IONOSCloudCluster.Spec.Lans {
+		lanSpec := &ctx.IONOSCloudCluster.Spec.Lans[i]
+		ctx.Logger.Info(fmt.Sprintf("Reconciling %s Lan", lanSpec.Name))
+		if lanSpec.LanID == nil {
+			lanID, err := createLan(ctx, lanSpec.Public)
+			if err != nil {
+				return &reconcile.Result{}, err
+			}
+			lanSpec.LanID = lanID
 		}
-		ctx.IONOSCloudCluster.Spec.PrivateLanID = lanID
-	}
 
-	ctx.IONOSCloudCluster.EnsureLan(v1alpha1.IONOSLanSpec{
-		Name:   "private",
-		LanID:  ctx.IONOSCloudCluster.Spec.PrivateLanID,
-		Public: false,
-	})
+		// check status
+		lanId := fmt.Sprint(*lanSpec.LanID)
+		lan, resp, err := ctx.IONOSClient.GetLan(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, lanId)
 
-	// check status
-	lanId := fmt.Sprint(*ctx.IONOSCloudCluster.Spec.PrivateLanID)
-	lan, resp, err := ctx.IONOSClient.GetLan(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, lanId)
-
-	if err != nil && resp.StatusCode != http.StatusNotFound {
-		return &reconcile.Result{}, errors.Wrap(err, "error getting private Lan")
-	}
-
-	if resp.StatusCode == http.StatusNotFound || *lan.Metadata.State == STATE_BUSY {
-		return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, errors.New("private Lan not available (yet)")
-	}
-
-	conditions.MarkTrue(ctx.IONOSCloudCluster, v1alpha1.PrivateLanCreatedCondition)
-
-	return nil, nil
-}
-
-func (r *IONOSCloudClusterReconciler) reconcilePublicLan(ctx *context.ClusterContext) (*reconcile.Result, error) {
-	ctx.Logger.Info("Reconciling public Lan")
-	if ctx.IONOSCloudCluster.Spec.PublicLanID == nil {
-		lanID, err := createLan(ctx, true)
-		if err != nil {
-			return &reconcile.Result{}, err
+		if err != nil && resp.StatusCode != http.StatusNotFound {
+			return &reconcile.Result{}, errors.Wrap(err, fmt.Sprintf("error getting %s Lan", lanSpec.Name))
 		}
-		ctx.IONOSCloudCluster.Spec.PublicLanID = lanID
-	}
 
-	ctx.IONOSCloudCluster.EnsureLan(v1alpha1.IONOSLanSpec{
-		Name:   "public",
-		LanID:  ctx.IONOSCloudCluster.Spec.PublicLanID,
-		Public: true,
-	})
-
-	// check status
-	lanId := fmt.Sprint(*ctx.IONOSCloudCluster.Spec.PublicLanID)
-	lan, resp, err := ctx.IONOSClient.GetLan(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, lanId)
-
-	if err != nil && resp.StatusCode != http.StatusNotFound {
-		return &reconcile.Result{}, errors.Wrap(err, "error getting public Lan")
-	}
-
-	if resp.StatusCode == http.StatusNotFound || *lan.Metadata.State == STATE_BUSY {
-		return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, errors.New("public Lan not available (yet)")
-	}
-
-	conditions.MarkTrue(ctx.IONOSCloudCluster, v1alpha1.PublicLanCreatedCondition)
-	return nil, nil
-}
-
-func (r *IONOSCloudClusterReconciler) reconcileInternet(ctx *context.ClusterContext) (*reconcile.Result, error) {
-	ctx.Logger.Info("Reconciling internet")
-	if ctx.IONOSCloudCluster.Spec.InternetLanID == nil {
-		lanID, err := createLan(ctx, true)
-		if err != nil {
-			return &reconcile.Result{}, err
+		if resp.StatusCode == http.StatusNotFound || *lan.Metadata.State == STATE_BUSY {
+			return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, errors.New(fmt.Sprintf("%s Lan not available (yet)", lanSpec.Name))
 		}
-		ctx.IONOSCloudCluster.Spec.InternetLanID = lanID
 	}
 
-	ctx.IONOSCloudCluster.EnsureLan(v1alpha1.IONOSLanSpec{
-		Name:   "internet",
-		LanID:  ctx.IONOSCloudCluster.Spec.InternetLanID,
-		Public: true,
-	})
-
-	// check status
-	lanId := fmt.Sprint(*ctx.IONOSCloudCluster.Spec.InternetLanID)
-	lan, resp, err := ctx.IONOSClient.GetLan(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, lanId)
-
-	if err != nil && resp.StatusCode != http.StatusNotFound {
-		return &reconcile.Result{}, errors.New("error getting internet Lan")
-	}
-
-	if resp.StatusCode == http.StatusNotFound || *lan.Metadata.State == STATE_BUSY {
-		return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, errors.New("internet Lan not available (yet)")
-	}
-
-	conditions.MarkTrue(ctx.IONOSCloudCluster, v1alpha1.InternetLanCreatedCondition)
-
+	conditions.MarkTrue(ctx.IONOSCloudCluster, v1alpha1.LanCreatedCondition)
 	return nil, nil
 }
 
 func (r *IONOSCloudClusterReconciler) reconcileLoadBalancer(ctx *context.ClusterContext) (*reconcile.Result, error) {
 	ctx.Logger.Info("Reconciling LoadBalancer")
-	if ctx.IONOSCloudCluster.Spec.LoadBalancerID == "" {
+	lbSpec := &ctx.IONOSCloudCluster.Spec.LoadBalancer
+	listenerLan := ctx.IONOSCloudCluster.Lan(lbSpec.ListenerLanRef.Name)
+	targetLan := ctx.IONOSCloudCluster.Lan(lbSpec.TargetLanRef.Name)
+
+	if listenerLan == nil {
+		return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, errors.New(fmt.Sprintf("listener lb %s Lan not available (yet)", lbSpec.ListenerLanRef.Name))
+	}
+	if targetLan == nil {
+		return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, errors.New(fmt.Sprintf("target lb %s Lan not available (yet)", lbSpec.TargetLanRef.Name))
+	}
+
+	if lbSpec.ID == "" {
 		loadBalancerName := fmt.Sprintf("lb-%s", ctx.Cluster.Name)
 		loadBalancer := ionoscloud.NetworkLoadBalancer{
 			Entities: &ionoscloud.NetworkLoadBalancerEntities{
@@ -330,9 +262,9 @@ func (r *IONOSCloudClusterReconciler) reconcileLoadBalancer(ctx *context.Cluster
 				},
 			},
 			Properties: &ionoscloud.NetworkLoadBalancerProperties{
-				ListenerLan: ctx.IONOSCloudCluster.Spec.PublicLanID,
+				ListenerLan: listenerLan.LanID,
 				Name:        &loadBalancerName,
-				TargetLan:   ctx.IONOSCloudCluster.Spec.PrivateLanID,
+				TargetLan:   targetLan.LanID,
 				Ips:         &[]string{ctx.IONOSCloudCluster.Spec.ControlPlaneEndpoint.Host},
 			},
 		}
@@ -340,21 +272,11 @@ func (r *IONOSCloudClusterReconciler) reconcileLoadBalancer(ctx *context.Cluster
 		if err != nil {
 			return &reconcile.Result{}, err
 		}
-		ctx.IONOSCloudCluster.Spec.LoadBalancerID = *loadBalancer.Id
-	}
-
-	ctx.IONOSCloudCluster.Spec.LoadBalancer = &v1alpha1.IONOSLoadBalancerSpec{
-		ID: ctx.IONOSCloudCluster.Spec.LoadBalancerID,
-		ListenerLanRef: v1alpha1.IONOSLanRefSpec{
-			Name: "public",
-		},
-		TargetLanRef: v1alpha1.IONOSLanRefSpec{
-			Name: "private",
-		},
+		lbSpec.ID = *loadBalancer.Id
 	}
 
 	// check status
-	loadBalancer, resp, err := ctx.IONOSClient.GetLoadBalancer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudCluster.Spec.LoadBalancerID)
+	loadBalancer, resp, err := ctx.IONOSClient.GetLoadBalancer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, lbSpec.ID)
 	if err != nil && resp.StatusCode != http.StatusNotFound {
 		return &reconcile.Result{}, errors.Wrap(err, "error getting loadbalancer")
 	}
