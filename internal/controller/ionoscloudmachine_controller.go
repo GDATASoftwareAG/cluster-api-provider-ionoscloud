@@ -384,10 +384,20 @@ func (r *IONOSCloudMachineReconciler) reconcileServer(ctx *context.MachineContex
 
 	nics := *server.Entities.Nics.Items
 	for _, nic := range nics {
+		ips := *nic.Properties.Ips
 		if strings.HasSuffix(*nic.Properties.Name, "-nic-lb") {
-			ips := *nic.Properties.Ips
 			ctx.IONOSCloudMachine.Spec.IP = &ips[0]
 		}
+		lan := ctx.IONOSCloudCluster.LanBy(nic.Properties.Lan)
+		if lan == nil {
+			continue
+		}
+		ctx.IONOSCloudMachine.EnsureNic(v1alpha1.IONOSNicSpec{
+			LanRef: v1alpha1.IONOSLanRefSpec{
+				Name: lan.Name,
+			},
+			PrimaryIP: &ips[0],
+		})
 	}
 
 	if ctx.IONOSCloudMachine.Spec.IP == nil {

@@ -59,7 +59,8 @@ type IONOSCloudMachineSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="IP is immutable"
 	IP *string `json:"ip,omitempty"`
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="ProviderID is immutable"
-	ProviderID string `json:"providerID,omitempty"`
+	ProviderID string         `json:"providerID,omitempty"`
+	Nics       []IONOSNicSpec `json:"nics,omitempty"`
 }
 
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.sshKeys) || has(self.sshKeys)", message="SSHKeys is required once set"
@@ -73,6 +74,12 @@ type IONOSVolumeSpec struct {
 	// Public SSH keys are set on the image as authorized keys for appropriate SSH login to the instance using the corresponding private key. This field may only be set in creation requests. When reading, it always returns null. SSH keys are only supported if a public Linux image is used for the volume creation.
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="SSHKeys is immutable"
 	SSHKeys *[]string `json:"sshKeys,omitempty"`
+}
+
+type IONOSNicSpec struct {
+	LanRef    IONOSLanRefSpec `json:"lanRef"`
+	PrimaryIP *string         `json:"primaryIP,omitempty"`
+	//NameTemplate string  `json:"nameTemplate"`
 }
 
 // IONOSCloudMachineStatus defines the observed state of IONOSCloudMachine
@@ -116,4 +123,17 @@ func (c *IONOSCloudMachine) SetConditions(conditions clusterv1.Conditions) {
 
 func init() {
 	SchemeBuilder.Register(&IONOSCloudMachine{}, &IONOSCloudMachineList{})
+}
+
+func (c *IONOSCloudMachine) EnsureNic(spec IONOSNicSpec) {
+	if spec.LanRef.Name == "" {
+		return
+	}
+	for i := range c.Spec.Nics {
+		if c.Spec.Nics[i].LanRef.Name == spec.LanRef.Name {
+			c.Spec.Nics[i] = spec
+			return
+		}
+	}
+	c.Spec.Nics = append(c.Spec.Nics, spec)
 }

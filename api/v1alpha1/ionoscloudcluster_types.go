@@ -99,8 +99,10 @@ type IONOSCloudClusterSpec struct {
 	Location Location `json:"location"`
 
 	// +kubebuilder:validation:MinLength=1
-	IdentityName         string                `json:"identityName"`
-	ControlPlaneEndpoint clusterv1.APIEndpoint `json:"controlPlaneEndpoint"`
+	IdentityName         string                 `json:"identityName"`
+	ControlPlaneEndpoint clusterv1.APIEndpoint  `json:"controlPlaneEndpoint"`
+	Lans                 []IONOSLanSpec         `json:"lans,omitempty"`
+	LoadBalancer         *IONOSLoadBalancerSpec `json:"loadBalancer,omitempty"`
 
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="DataCenterID is immutable"
 	DataCenterID string `json:"dataCenterID,omitempty"`
@@ -155,4 +157,52 @@ func (c *IONOSCloudCluster) SetConditions(conditions clusterv1.Conditions) {
 
 func init() {
 	SchemeBuilder.Register(&IONOSCloudCluster{}, &IONOSCloudClusterList{})
+}
+
+type IONOSLanSpec struct {
+	LanID  *int32 `json:"lanID,omitempty"` //validate?
+	Name   string `json:"name"`            //validate?
+	Public bool   `json:"public"`
+	//NameTemplate string   `json:"nameTemplate"`
+	//FailoverIPs  []string `json:"failoverIPs,omitempty"`
+}
+
+type IONOSLoadBalancerSpec struct {
+	ID             string          `json:"id,omitempty"`
+	ListenerLanRef IONOSLanRefSpec `json:"listenerLanRef"`
+	TargetLanRef   IONOSLanRefSpec `json:"targetLanRef"`
+}
+
+func (c *IONOSCloudCluster) Lan(name string) *IONOSLanSpec {
+	for i := range c.Spec.Lans {
+		if c.Spec.Lans[i].Name == name {
+			return &c.Spec.Lans[i]
+		}
+	}
+	return nil
+}
+
+func (c *IONOSCloudCluster) LanBy(id *int32) *IONOSLanSpec {
+	if id == nil || *id == 0 {
+		return nil
+	}
+	for i := range c.Spec.Lans {
+		if c.Spec.Lans[i].LanID == id {
+			return &c.Spec.Lans[i]
+		}
+	}
+	return nil
+}
+
+func (c *IONOSCloudCluster) EnsureLan(spec IONOSLanSpec) {
+	if spec.Name == "" {
+		return
+	}
+	for i := range c.Spec.Lans {
+		if c.Spec.Lans[i].Name == spec.Name {
+			c.Spec.Lans[i] = spec
+			return
+		}
+	}
+	c.Spec.Lans = append(c.Spec.Lans, spec)
 }
