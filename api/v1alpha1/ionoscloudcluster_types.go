@@ -187,7 +187,7 @@ func (c *IONOSCloudCluster) LanBy(id *int32) *IONOSLanSpec {
 		return nil
 	}
 	for i := range c.Spec.Lans {
-		if c.Spec.Lans[i].LanID == id {
+		if *c.Spec.Lans[i].LanID == *id {
 			return &c.Spec.Lans[i]
 		}
 	}
