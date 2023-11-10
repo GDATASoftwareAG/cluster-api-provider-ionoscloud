@@ -26,12 +26,7 @@ type IONOSCloudClusterTemplateSpec struct {
 }
 
 type IONOSCloudClusterTemplateResource struct {
-	Spec IONOSCloudClusterTemplateClusterSpec `json:"spec"`
-}
-
-type IONOSCloudClusterTemplateClusterSpec struct {
-	// +kubebuilder:validation:MinLength=1
-	IdentityName string `json:"identityName"`
+	Spec IONOSCloudClusterSpec `json:"spec"`
 }
 
 // +kubebuilder:object:root=true
