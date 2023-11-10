@@ -39,13 +39,120 @@ spec:
               template:
                 properties:
                   spec:
+                    description: IONOSCloudClusterSpec defines the desired state of
+                      IONOSCloudCluster
                     properties:
+                      controlPlaneEndpoint:
+                        description: APIEndpoint represents a reachable Kubernetes
+                          API endpoint.
+                        properties:
+                          host:
+                            description: The hostname on which the API server is serving.
+                            type: string
+                          port:
+                            description: The port on which the API server is serving.
+                            format: int32
+                            type: integer
+                        required:
+                        - host
+                        - port
+                        type: object
+                      dataCenterID:
+                        type: string
+                        x-kubernetes-validations:
+                        - message: DataCenterID is immutable
+                          rule: self == oldSelf
                       identityName:
                         minLength: 1
                         type: string
+                      internetLanID:
+                        format: int32
+                        type: integer
+                        x-kubernetes-validations:
+                        - message: InternetLanID is immutable
+                          rule: self == oldSelf
+                      lans:
+                        items:
+                          properties:
+                            lanID:
+                              format: int32
+                              type: integer
+                            name:
+                              type: string
+                            public:
+                              type: boolean
+                          required:
+                          - name
+                          - public
+                          type: object
+                        type: array
+                      loadBalancer:
+                        properties:
+                          id:
+                            type: string
+                          listenerLanRef:
+                            properties:
+                              name:
+                                type: string
+                            required:
+                            - name
+                            type: object
+                          targetLanRef:
+                            properties:
+                              name:
+                                type: string
+                            required:
+                            - name
+                            type: object
+                        required:
+                        - listenerLanRef
+                        - targetLanRef
+                        type: object
+                      loadBalancerID:
+                        type: string
+                        x-kubernetes-validations:
+                        - message: LoadBalancerID is immutable
+                          rule: self == oldSelf
+                      location:
+                        enum:
+                        - es/vlt
+                        - fr/par
+                        - de/txl
+                        - de/fra
+                        - gb-lhr
+                        - us-ewr
+                        - us-las
+                        type: string
+                        x-kubernetes-validations:
+                        - message: Location is immutable
+                          rule: self == oldSelf
+                      privateLanID:
+                        format: int32
+                        type: integer
+                        x-kubernetes-validations:
+                        - message: PrivateLanID is immutable
+                          rule: self == oldSelf
+                      publicLanID:
+                        format: int32
+                        type: integer
+                        x-kubernetes-validations:
+                        - message: PublicLanID is immutable
+                          rule: self == oldSelf
                     required:
                     - identityName
+                    - location
                     type: object
+                    x-kubernetes-validations:
+                    - message: DataCenterID is required once set
+                      rule: '!has(oldSelf.dataCenterID) || has(self.dataCenterID)'
+                    - message: LoadBalancerID is required once set
+                      rule: '!has(oldSelf.loadBalancerID) || has(self.loadBalancerID)'
+                    - message: PublicLanID is required once set
+                      rule: '!has(oldSelf.publicLanID) || has(self.publicLanID)'
+                    - message: InternetLanID is required once set
+                      rule: '!has(oldSelf.internetLanID) || has(self.internetLanID)'
+                    - message: PrivateLanID is required once set
+                      rule: '!has(oldSelf.privateLanID) || has(self.privateLanID)'
                 required:
                 - spec
                 type: object

@@ -130,7 +130,6 @@ spec:
                 - message: PublicLanID is immutable
                   rule: self == oldSelf
             required:
-            - controlPlaneEndpoint
             - identityName
             - location
             type: object

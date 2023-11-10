@@ -99,10 +99,13 @@ type IONOSCloudClusterSpec struct {
 	Location Location `json:"location"`
 
 	// +kubebuilder:validation:MinLength=1
-	IdentityName         string                 `json:"identityName"`
-	ControlPlaneEndpoint clusterv1.APIEndpoint  `json:"controlPlaneEndpoint"`
-	Lans                 []IONOSLanSpec         `json:"lans,omitempty"`
-	LoadBalancer         *IONOSLoadBalancerSpec `json:"loadBalancer,omitempty"`
+	IdentityName string `json:"identityName"`
+	// +optional
+	ControlPlaneEndpoint clusterv1.APIEndpoint `json:"controlPlaneEndpoint"`
+	// +optional
+	Lans []IONOSLanSpec `json:"lans,omitempty"`
+	// +optional
+	LoadBalancer *IONOSLoadBalancerSpec `json:"loadBalancer,omitempty"`
 
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="DataCenterID is immutable"
 	DataCenterID string `json:"dataCenterID,omitempty"`
