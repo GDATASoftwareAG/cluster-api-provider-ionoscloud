@@ -103,6 +103,8 @@ type IONOSCloudClusterSpec struct {
 	// +optional
 	ControlPlaneEndpoint clusterv1.APIEndpoint `json:"controlPlaneEndpoint"`
 	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Lans []IONOSLanSpec `json:"lans,omitempty"`
 	// +optional
 	LoadBalancer *IONOSLoadBalancerSpec `json:"loadBalancer,omitempty"`
@@ -190,7 +192,11 @@ func (c *IONOSCloudCluster) LanBy(id *int32) *IONOSLanSpec {
 		return nil
 	}
 	for i := range c.Spec.Lans {
-		if *c.Spec.Lans[i].LanID == *id {
+		lan := &c.Spec.Lans[i]
+		if lan.LanID == nil {
+			continue
+		}
+		if *lan.LanID == *id {
 			return &c.Spec.Lans[i]
 		}
 	}
@@ -203,7 +209,8 @@ func (c *IONOSCloudCluster) EnsureLan(spec IONOSLanSpec) {
 	}
 	for i := range c.Spec.Lans {
 		if c.Spec.Lans[i].Name == spec.Name {
-			c.Spec.Lans[i] = spec
+			c.Spec.Lans[i].LanID = spec.LanID
+			c.Spec.Lans[i].Public = spec.Public
 			return
 		}
 	}
