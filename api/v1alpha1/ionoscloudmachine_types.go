@@ -131,7 +131,8 @@ func (c *IONOSCloudMachine) EnsureNic(spec IONOSNicSpec) {
 	}
 	for i := range c.Spec.Nics {
 		if c.Spec.Nics[i].LanRef.Name == spec.LanRef.Name {
-			c.Spec.Nics[i] = spec
+			c.Spec.Nics[i].PrimaryIP = spec.PrimaryIP
+			c.Spec.Nics[i].LanRef = spec.LanRef
 			return
 		}
 	}
