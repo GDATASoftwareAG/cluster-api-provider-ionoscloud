@@ -86,6 +86,9 @@ spec:
                           - public
                           type: object
                         type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
                       loadBalancer:
                         properties:
                           id:
@@ -140,6 +143,8 @@ spec:
                           rule: self == oldSelf
                     required:
                     - identityName
+                    - lans
+                    - loadBalancer
                     - location
                     type: object
                     x-kubernetes-validations:

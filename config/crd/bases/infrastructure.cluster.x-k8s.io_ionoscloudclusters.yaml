@@ -134,6 +134,8 @@ spec:
                   rule: self == oldSelf
             required:
             - identityName
+            - lans
+            - loadBalancer
             - location
             type: object
             x-kubernetes-validations:

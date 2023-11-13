@@ -86,6 +86,28 @@ var _ = Describe("IONOSCloudCluster controller", func() {
 					Port: 6443,
 				},
 				IdentityName: CAPICClusterIdentityName,
+				LoadBalancer: v1alpha1.IONOSLoadBalancerSpec{
+					ListenerLanRef: v1alpha1.IONOSLanRefSpec{
+						Name: "public",
+					},
+					TargetLanRef: v1alpha1.IONOSLanRefSpec{
+						Name: "private",
+					},
+				},
+				Lans: []v1alpha1.IONOSLanSpec{
+					{
+						Name:   "public",
+						Public: true,
+					},
+					{
+						Name:   "private",
+						Public: false,
+					},
+					{
+						Name:   "internet",
+						Public: true,
+					},
+				},
 			},
 		}
 		identitySecret = &v1.Secret{

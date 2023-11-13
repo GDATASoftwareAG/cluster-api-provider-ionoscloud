@@ -111,6 +111,28 @@ var _ = Describe("IONOSCloudMachine controller", func() {
 					Port: 6443,
 				},
 				IdentityName: CAPICClusterIdentityName,
+				LoadBalancer: v1alpha1.IONOSLoadBalancerSpec{
+					ListenerLanRef: v1alpha1.IONOSLanRefSpec{
+						Name: "public",
+					},
+					TargetLanRef: v1alpha1.IONOSLanRefSpec{
+						Name: "private",
+					},
+				},
+				Lans: []v1alpha1.IONOSLanSpec{
+					{
+						Name:   "public",
+						Public: true,
+					},
+					{
+						Name:   "private",
+						Public: false,
+					},
+					{
+						Name:   "internet",
+						Public: true,
+					},
+				},
 			},
 		}
 		capicMachine = &v1alpha1.IONOSCloudMachine{
@@ -139,6 +161,18 @@ var _ = Describe("IONOSCloudMachine controller", func() {
 				},
 				IP:         nil,
 				ProviderID: "",
+				Nics: []v1alpha1.IONOSNicSpec{
+					{
+						LanRef: v1alpha1.IONOSLanRefSpec{
+							Name: "private",
+						},
+					},
+					{
+						LanRef: v1alpha1.IONOSLanRefSpec{
+							Name: "internet",
+						},
+					},
+				},
 			},
 		}
 		identitySecret = &v1.Secret{

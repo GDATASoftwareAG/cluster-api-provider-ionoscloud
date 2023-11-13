@@ -20,6 +20,10 @@ import (
 	goctx "context"
 	b64 "encoding/base64"
 	"fmt"
+	"net/http"
+	"strings"
+	"time"
+
 	v1alpha1 "github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/api/v1alpha1"
 	"github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/internal/context"
 	"github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/internal/utils"
@@ -29,7 +33,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	apitypes "k8s.io/apimachinery/pkg/types"
-	"net/http"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	bootstrapv1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
 	clusterutilv1 "sigs.k8s.io/cluster-api/util"
@@ -41,8 +44,6 @@ import (
 	ctrlutil "sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"strings"
-	"time"
 )
 
 // IONOSCloudMachineReconciler reconciles a IONOSCloudMachine object
@@ -183,48 +184,8 @@ func (r *IONOSCloudMachineReconciler) reconcileDelete(ctx *context.MachineContex
 			}
 		}
 
-		if ctx.IONOSCloudMachine.Spec.IP != nil {
-			if rules, _, err := ctx.IONOSClient.GetLoadBalancerForwardingRules(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudCluster.Spec.LoadBalancerID); err != nil {
-				return reconcile.Result{}, err
-			} else {
-				targetToDelete := ionoscloud.NetworkLoadBalancerForwardingRuleTarget{
-					Ip:     ctx.IONOSCloudMachine.Spec.IP,
-					Port:   ionoscloud.PtrInt32(6443),
-					Weight: ionoscloud.PtrInt32(1),
-				}
-				for _, rule := range *rules.Items {
-					if *rule.Properties.ListenerPort != 6443 {
-						// we only care about the api server port
-						continue
-					}
-
-					for _, target := range *rule.Properties.Targets {
-						if *target.Ip == *targetToDelete.Ip {
-							targets := *rule.Properties.Targets
-							targets = findAndDeleteByIP(targets, targetToDelete)
-							properties := ionoscloud.NetworkLoadBalancerForwardingRuleProperties{
-								Algorithm:    rule.Properties.Algorithm,
-								HealthCheck:  rule.Properties.HealthCheck,
-								ListenerIp:   rule.Properties.ListenerIp,
-								ListenerPort: rule.Properties.ListenerPort,
-								Name:         rule.Properties.Name,
-								Protocol:     rule.Properties.Protocol,
-								Targets:      &targets,
-							}
-							if _, _, err = ctx.IONOSClient.PatchLoadBalancerForwardingRule(
-								ctx,
-								ctx.IONOSCloudCluster.Spec.DataCenterID,
-								ctx.IONOSCloudCluster.Spec.LoadBalancerID,
-								*rule.Id,
-								properties,
-							); err != nil {
-								return reconcile.Result{}, err
-							}
-
-						}
-					}
-				}
-			}
+		if err = r.reconcileDeleteLoadBalancerForwardingRule(ctx); err != nil {
+			return reconcile.Result{}, err
 		}
 
 		conditions.MarkFalse(ctx.IONOSCloudCluster, v1alpha1.ServerCreatedCondition, "ServerDeleted", clusterv1.ConditionSeverityInfo, "")
@@ -232,6 +193,62 @@ func (r *IONOSCloudMachineReconciler) reconcileDelete(ctx *context.MachineContex
 	}
 
 	return reconcile.Result{}, nil
+}
+
+func (r *IONOSCloudMachineReconciler) reconcileDeleteLoadBalancerForwardingRule(ctx *context.MachineContext) error {
+	if !clusterutilv1.IsControlPlaneMachine(ctx.Machine) {
+		ctx.Logger.Info("Deleting IONOSCloudMachine is not a control plane...no forwarding rule deletion required.")
+		return nil
+	}
+
+	lbSpec := ctx.IONOSCloudCluster.Spec.LoadBalancer
+	nic := ctx.IONOSCloudMachine.NicByLan(lbSpec.TargetLanRef.Name)
+
+	if nic == nil && nic.PrimaryIP != nil {
+		return nil
+	}
+
+	if rules, _, err := ctx.IONOSClient.GetLoadBalancerForwardingRules(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, lbSpec.ID); err != nil {
+		return err
+	} else {
+		targetToDelete := ionoscloud.NetworkLoadBalancerForwardingRuleTarget{
+			Ip:     nic.PrimaryIP,
+			Port:   ionoscloud.PtrInt32(6443),
+			Weight: ionoscloud.PtrInt32(1),
+		}
+		for _, rule := range *rules.Items {
+			if *rule.Properties.ListenerPort != 6443 {
+				// we only care about the api server port
+				continue
+			}
+
+			for _, target := range *rule.Properties.Targets {
+				if *target.Ip == *targetToDelete.Ip {
+					targets := *rule.Properties.Targets
+					targets = findAndDeleteByIP(targets, targetToDelete)
+					properties := ionoscloud.NetworkLoadBalancerForwardingRuleProperties{
+						Algorithm:    rule.Properties.Algorithm,
+						HealthCheck:  rule.Properties.HealthCheck,
+						ListenerIp:   rule.Properties.ListenerIp,
+						ListenerPort: rule.Properties.ListenerPort,
+						Name:         rule.Properties.Name,
+						Protocol:     rule.Properties.Protocol,
+						Targets:      &targets,
+					}
+					if _, _, err = ctx.IONOSClient.PatchLoadBalancerForwardingRule(
+						ctx,
+						ctx.IONOSCloudCluster.Spec.DataCenterID,
+						lbSpec.ID,
+						*rule.Id,
+						properties,
+					); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (r *IONOSCloudMachineReconciler) reconcileNormal(ctx *context.MachineContext) (reconcile.Result, error) {
@@ -317,25 +334,21 @@ func (r *IONOSCloudMachineReconciler) reconcileServer(ctx *context.MachineContex
 			return &reconcile.Result{}, errors.Wrapf(err, "invalid spec.bootvolume.disksize")
 		}
 
+		nics := make([]ionoscloud.Nic, 0)
+		for _, nic := range ctx.IONOSCloudMachine.Spec.Nics {
+			lanSpec := ctx.IONOSCloudCluster.Lan(nic.LanRef.Name)
+			nics = append(nics, ionoscloud.Nic{
+				Properties: &ionoscloud.NicProperties{
+					Dhcp: ionoscloud.ToPtr(true),
+					Lan:  lanSpec.LanID,
+					Name: ionoscloud.ToPtr(fmt.Sprintf("%s-nic-%s", ctx.IONOSCloudMachine.Name, lanSpec.Name)),
+				},
+			})
+		}
 		server := ionoscloud.Server{
 			Entities: &ionoscloud.ServerEntities{
 				Nics: &ionoscloud.Nics{
-					Items: &[]ionoscloud.Nic{
-						{
-							Properties: &ionoscloud.NicProperties{
-								Dhcp: ionoscloud.ToPtr(true),
-								Lan:  ctx.IONOSCloudCluster.Spec.PrivateLanID,
-								Name: ionoscloud.ToPtr(fmt.Sprintf("%s-nic-lb", ctx.IONOSCloudMachine.Name)),
-							},
-						},
-						{
-							Properties: &ionoscloud.NicProperties{
-								Dhcp: ionoscloud.ToPtr(true),
-								Lan:  ctx.IONOSCloudCluster.Spec.InternetLanID,
-								Name: ionoscloud.ToPtr(fmt.Sprintf("%s-nic-internet", ctx.IONOSCloudMachine.Name)),
-							},
-						},
-					},
+					Items: &nics,
 				},
 				Volumes: &ionoscloud.AttachedVolumes{
 					Items: &[]ionoscloud.Volume{
@@ -356,7 +369,6 @@ func (r *IONOSCloudMachineReconciler) reconcileServer(ctx *context.MachineContex
 				},
 			},
 			Properties: &ionoscloud.ServerProperties{
-
 				Cores:     ctx.IONOSCloudMachine.Spec.Cores,
 				CpuFamily: ctx.IONOSCloudMachine.Spec.CpuFamily,
 				Name:      ionoscloud.ToPtr(ctx.IONOSCloudMachine.Name),
@@ -381,17 +393,15 @@ func (r *IONOSCloudMachineReconciler) reconcileServer(ctx *context.MachineContex
 	if resp.StatusCode == http.StatusNotFound || (server.Metadata != nil && *server.Metadata.State == STATE_BUSY) {
 		return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, errors.New("server not yet created")
 	}
-
+	ipObtained := false
 	nics := *server.Entities.Nics.Items
 	for _, nic := range nics {
 		ips := *nic.Properties.Ips
-		if strings.HasSuffix(*nic.Properties.Name, "-nic-lb") {
-			ctx.IONOSCloudMachine.Spec.IP = &ips[0]
-		}
 		lan := ctx.IONOSCloudCluster.LanBy(nic.Properties.Lan)
-		if lan == nil {
+		if lan == nil || len(ips) == 0 {
 			continue
 		}
+		ipObtained = true
 		ctx.IONOSCloudMachine.EnsureNic(v1alpha1.IONOSNicSpec{
 			LanRef: v1alpha1.IONOSLanRefSpec{
 				Name: lan.Name,
@@ -400,7 +410,7 @@ func (r *IONOSCloudMachineReconciler) reconcileServer(ctx *context.MachineContex
 		})
 	}
 
-	if ctx.IONOSCloudMachine.Spec.IP == nil {
+	if !ipObtained {
 		return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, errors.New("server does not have an ip yet")
 	}
 
@@ -413,21 +423,24 @@ func (r *IONOSCloudMachineReconciler) reconcileLoadBalancerForwardingRule(ctx *c
 	ctx.Logger.Info("Reconciling load balancer forwarding rule")
 
 	if !clusterutilv1.IsControlPlaneMachine(ctx.Machine) {
-		ctx.Logger.Info("Reconciled IONOSCLoudMachine is not a control plane...no forwarding rule needed.")
+		ctx.Logger.Info("Reconciled IONOSCloudMachine is not a control plane...no forwarding rule needed.")
 		return nil, nil
 	}
 
-	if ctx.IONOSCloudMachine.Spec.IP == nil {
-		return &reconcile.Result{}, errors.New("server has not obtained an ip yet")
+	lbSpec := ctx.IONOSCloudCluster.Spec.LoadBalancer
+	nic := ctx.IONOSCloudMachine.NicByLan(lbSpec.TargetLanRef.Name)
+
+	if nic == nil && nic.PrimaryIP != nil {
+		return &reconcile.Result{}, errors.New("server has not obtained an target ip yet")
 	}
 
 	if ctx.IONOSCloudMachine.Spec.ProviderID != "" {
-		rules, _, err := ctx.IONOSClient.GetLoadBalancerForwardingRules(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudCluster.Spec.LoadBalancerID)
+		rules, _, err := ctx.IONOSClient.GetLoadBalancerForwardingRules(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, lbSpec.ID)
 		if err != nil {
 			return &reconcile.Result{}, errors.Wrap(err, "error getting forwarding rules")
 		}
 		desiredTarget := ionoscloud.NetworkLoadBalancerForwardingRuleTarget{
-			Ip:     ctx.IONOSCloudMachine.Spec.IP,
+			Ip:     nic.PrimaryIP,
 			Port:   ionoscloud.PtrInt32(6443),
 			Weight: ionoscloud.PtrInt32(1),
 		}
@@ -461,7 +474,7 @@ func (r *IONOSCloudMachineReconciler) reconcileLoadBalancerForwardingRule(ctx *c
 					Targets:      &targets,
 				}
 
-				if _, _, err = ctx.IONOSClient.PatchLoadBalancerForwardingRule(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudCluster.Spec.LoadBalancerID, *rule.Id, properties); err != nil {
+				if _, _, err = ctx.IONOSClient.PatchLoadBalancerForwardingRule(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, lbSpec.ID, *rule.Id, properties); err != nil {
 					return &reconcile.Result{}, errors.Wrap(err, "error updating forwarding rules")
 				}
 			}

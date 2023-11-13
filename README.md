@@ -18,6 +18,7 @@ The API itself is shared across multiple cloud providers allowing for IONOS Clou
 * Choice of Linux distribution between Ubuntu 22.04 and other cloud init distribution using Server Templates based on raw images from [image builder](image_builder).
 * Using cloud init for bootstrapping nodes.
 * Installs only the minimal components to bootstrap a control plane and workers.
+* multi ipv4 lan's (private and public lan)
 
 # Roadmap
 
@@ -28,7 +29,7 @@ The API itself is shared across multiple cloud providers allowing for IONOS Clou
 * failuredomains for control planes
 * failuredomains for machinedeployment
 * autoscaler integrations example
-* multi lan (private and public lan)
+* external managed datacenter
 
 ---
 
