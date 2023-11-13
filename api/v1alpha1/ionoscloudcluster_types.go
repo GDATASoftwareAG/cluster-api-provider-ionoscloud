@@ -75,10 +75,6 @@ func (r Location) String() string {
 
 // IONOSCloudClusterSpec defines the desired state of IONOSCloudCluster
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.dataCenterID) || has(self.dataCenterID)", message="DataCenterID is required once set"
-// +kubebuilder:validation:XValidation:rule="!has(oldSelf.loadBalancerID) || has(self.loadBalancerID)", message="LoadBalancerID is required once set"
-// +kubebuilder:validation:XValidation:rule="!has(oldSelf.publicLanID) || has(self.publicLanID)", message="PublicLanID is required once set"
-// +kubebuilder:validation:XValidation:rule="!has(oldSelf.internetLanID) || has(self.internetLanID)", message="InternetLanID is required once set"
-// +kubebuilder:validation:XValidation:rule="!has(oldSelf.privateLanID) || has(self.privateLanID)", message="PrivateLanID is required once set"
 type IONOSCloudClusterSpec struct {
 
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Location is immutable"
@@ -95,14 +91,6 @@ type IONOSCloudClusterSpec struct {
 
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="DataCenterID is immutable"
 	DataCenterID string `json:"dataCenterID,omitempty"`
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="LoadBalancerID is immutable"
-	LoadBalancerID string `json:"loadBalancerID,omitempty"`
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="PublicLanID is immutable"
-	PublicLanID *int32 `json:"publicLanID,omitempty"`
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="InternetLanID is immutable"
-	InternetLanID *int32 `json:"internetLanID,omitempty"`
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="PrivateLanID is immutable"
-	PrivateLanID *int32 `json:"privateLanID,omitempty"`
 }
 
 // IONOSCloudClusterStatus defines the observed state of IONOSCloudCluster

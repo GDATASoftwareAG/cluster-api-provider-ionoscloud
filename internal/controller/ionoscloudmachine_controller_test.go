@@ -159,7 +159,6 @@ var _ = Describe("IONOSCloudMachine controller", func() {
 				BootVolume: v1alpha1.IONOSVolumeSpec{
 					Size: "2048",
 				},
-				IP:         nil,
 				ProviderID: "",
 				Nics: []v1alpha1.IONOSNicSpec{
 					{

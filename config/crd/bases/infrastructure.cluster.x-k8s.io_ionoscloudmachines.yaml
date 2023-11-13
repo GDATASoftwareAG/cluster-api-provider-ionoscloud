@@ -96,11 +96,6 @@ spec:
                 x-kubernetes-validations:
                 - message: CpuFamily is immutable
                   rule: self == oldSelf
-              ip:
-                type: string
-                x-kubernetes-validations:
-                - message: IP is immutable
-                  rule: self == oldSelf
               name:
                 description: The name of the  resource.
                 type: string
@@ -144,8 +139,6 @@ spec:
             x-kubernetes-validations:
             - message: ProviderID is required once set
               rule: '!has(oldSelf.providerID) || has(self.providerID)'
-            - message: IP is required once set
-              rule: '!has(oldSelf.ip) || has(self.ip)'
           status:
             description: IONOSCloudMachineStatus defines the observed state of IONOSCloudMachine
             properties:
