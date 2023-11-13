@@ -32,7 +32,6 @@ const (
 
 // IONOSCloudMachineSpec defines the desired state of IONOSCloudMachine
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.providerID) || has(self.providerID)", message="ProviderID is required once set"
-// +kubebuilder:validation:XValidation:rule="!has(oldSelf.ip) || has(self.ip)", message="IP is required once set"
 type IONOSCloudMachineSpec struct {
 	// The name of the  resource.
 	Name *string `json:"name,omitempty"`
@@ -56,8 +55,6 @@ type IONOSCloudMachineSpec struct {
 	Ram        *int32          `json:"ram"`
 	BootVolume IONOSVolumeSpec `json:"bootVolume"`
 
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="IP is immutable"
-	IP *string `json:"ip,omitempty"`
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="ProviderID is immutable"
 	ProviderID string         `json:"providerID,omitempty"`
 	Nics       []IONOSNicSpec `json:"nics,omitempty"`
