@@ -204,7 +204,7 @@ func (r *IONOSCloudMachineReconciler) reconcileDeleteLoadBalancerForwardingRule(
 	lbSpec := ctx.IONOSCloudCluster.Spec.LoadBalancer
 	nic := ctx.IONOSCloudMachine.NicByLan(lbSpec.TargetLanRef.Name)
 
-	if nic == nil && nic.PrimaryIP != nil {
+	if nic == nil || nic.PrimaryIP == nil {
 		return nil
 	}
 
