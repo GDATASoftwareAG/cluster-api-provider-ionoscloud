@@ -83,9 +83,6 @@ spec:
                 format: int32
                 minimum: 1
                 type: integer
-                x-kubernetes-validations:
-                - message: Cores is immutable
-                  rule: self == oldSelf
               cpuFamily:
                 description: CPU architecture on which server gets provisioned; not
                   all CPU architectures are available in all datacenter regions; available

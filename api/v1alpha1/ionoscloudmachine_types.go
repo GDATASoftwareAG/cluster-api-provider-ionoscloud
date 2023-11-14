@@ -42,7 +42,6 @@ type IONOSCloudMachineSpec struct {
 	AvailabilityZone *string `json:"availabilityZone,omitempty"`
 	// The total number of cores for the enterprise server.
 	// +kubebuilder:validation:Minimum=1
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Cores is immutable"
 	Cores *int32 `json:"cores"`
 	// CPU architecture on which server gets provisioned; not all CPU architectures are available in all datacenter regions; available CPU architectures can be retrieved from the datacenter resource; must not be provided for CUBE servers.
 	// +kubebuilder:validation:MinLength=1
