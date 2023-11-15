@@ -189,8 +189,8 @@ func (r *IONOSCloudMachineReconciler) reconcileDelete(ctx *context.MachineContex
 		}
 
 		conditions.MarkFalse(ctx.IONOSCloudCluster, v1alpha1.ServerCreatedCondition, "ServerDeleted", clusterv1.ConditionSeverityInfo, "")
-		ctrlutil.RemoveFinalizer(ctx.IONOSCloudMachine, v1alpha1.MachineFinalizer)
 	}
+	ctrlutil.RemoveFinalizer(ctx.IONOSCloudMachine, v1alpha1.MachineFinalizer)
 
 	return reconcile.Result{}, nil
 }
