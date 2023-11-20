@@ -140,8 +140,15 @@ type IONOSLanSpec struct {
 	LanID  *int32 `json:"lanID,omitempty"` //validate?
 	Name   string `json:"name"`            //validate?
 	Public bool   `json:"public"`
+	// +listType=map
+	// +listMapKey=id
+	FailoverGroups []IONOSFailoverGroup `json:"failoverGroups,omitempty"`
 	//NameTemplate string   `json:"nameTemplate"`
-	//FailoverIPs  []string `json:"failoverIPs,omitempty"`
+}
+
+type IONOSFailoverGroup struct {
+	ID string `json:"id"`
+	//	NicUuid string `json:"nicUuid,omitempty"`
 }
 
 type IONOSLoadBalancerSpec struct {

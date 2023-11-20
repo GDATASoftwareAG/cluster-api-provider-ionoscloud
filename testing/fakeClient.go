@@ -26,6 +26,20 @@ type FakeClient struct {
 	CredentialsAreValid bool
 }
 
+func (f FakeClient) EnsureFailoverIPOnLan(ctx context.Context, datacenterId, lanId, ip, nicUuid string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (f FakeClient) EnsureAdditionalIPOnNic(ctx context.Context, datacenterId, serverId, nic, ip string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (f FakeClient) GetIPBlock(_ context.Context, _ string) (ionoscloud.IpBlock, *ionoscloud.APIResponse, error) {
+	return ionoscloud.IpBlock{}, nil, nil
+}
+
 func (f FakeClient) DeleteServer(_ context.Context, datacenterId, serverId string) (*ionoscloud.APIResponse, error) {
 	serverId = strings.TrimPrefix(serverId, "ionos://")
 	var items []ionoscloud.Server

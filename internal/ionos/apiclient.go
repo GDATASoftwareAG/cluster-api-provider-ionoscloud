@@ -22,9 +22,14 @@ type DatacenterAPI interface {
 	DeleteDatacenter(ctx context.Context, datacenterId string) (*ionoscloud.APIResponse, error)
 }
 
+type IPBlockAPI interface {
+	GetIPBlock(ctx context.Context, id string) (ionoscloud.IpBlock, *ionoscloud.APIResponse, error)
+}
+
 type LanAPI interface {
 	CreateLan(ctx context.Context, datacenterId string, public bool) (ionoscloud.LanPost, *ionoscloud.APIResponse, error)
 	GetLan(ctx context.Context, datacenterId, lanId string) (ionoscloud.Lan, *ionoscloud.APIResponse, error)
+	EnsureFailoverIPOnLan(ctx context.Context, datacenterId, lanId, ip, nicUuid string) error
 }
 
 type DefaultAPI interface {
@@ -46,6 +51,7 @@ type ServerAPI interface {
 	CreateServer(ctx context.Context, datacenterId string, server ionoscloud.Server) (ionoscloud.Server, *ionoscloud.APIResponse, error)
 	GetServer(ctx context.Context, datacenterId, serverId string) (ionoscloud.Server, *ionoscloud.APIResponse, error)
 	DeleteServer(ctx context.Context, datacenterId, serverId string) (*ionoscloud.APIResponse, error)
+	EnsureAdditionalIPOnNic(ctx context.Context, datacenterId, serverId, nic, ip string) error
 }
 
 type Client interface {
@@ -55,6 +61,7 @@ type Client interface {
 	ServerAPI
 	DefaultAPI
 	VolumeAPI
+	IPBlockAPI
 }
 
 func NewAPIClient(username, password, token, host string) Client {
@@ -76,6 +83,63 @@ func NewAPIClient(username, password, token, host string) Client {
 
 type APIClient struct {
 	client *ionoscloud.APIClient
+}
+
+func (c *APIClient) EnsureAdditionalIPOnNic(ctx context.Context, datacenterId, serverId, nicUuid, ip string) error {
+	serverId = strings.TrimPrefix(serverId, "ionos://")
+	nic, _, err := c.client.NetworkInterfacesApi.DatacentersServersNicsFindById(ctx, datacenterId, serverId, nicUuid).Execute()
+	if err != nil {
+		return err
+	}
+	ips := []string{}
+	if nic.Properties.Ips != nil {
+		for _, current := range *nic.Properties.Ips {
+			if current == ip {
+				return nil
+			}
+		}
+		ips = *nic.Properties.Ips
+	}
+	ips = append(ips, ip)
+	_, _, err = c.client.NetworkInterfacesApi.DatacentersServersNicsPatch(ctx, datacenterId, serverId, nicUuid).Nic(ionoscloud.NicProperties{
+		Ips: &ips,
+	}).Execute()
+	return err
+}
+
+func (c *APIClient) EnsureFailoverIPOnLan(ctx context.Context, datacenterId, lanId, ip, nicUuid string) error {
+	lan, _, err := c.client.LANsApi.DatacentersLansFindById(ctx, datacenterId, lanId).Execute()
+	if err != nil {
+		return err
+	}
+	failovers := []ionoscloud.IPFailover{}
+	ignore := false
+	if lan.Properties.IpFailover != nil {
+		for _, failover := range *lan.Properties.IpFailover {
+			if *failover.Ip == ip {
+				if *failover.NicUuid == nicUuid {
+					return nil
+				}
+				failover.NicUuid = &nicUuid
+				ignore = true
+			}
+			failovers = append(failovers, failover)
+		}
+	}
+	if !ignore {
+		failovers = append(failovers, ionoscloud.IPFailover{
+			Ip:      &ip,
+			NicUuid: &nicUuid,
+		})
+	}
+	_, _, err = c.client.LANsApi.DatacentersLansPatch(ctx, datacenterId, lanId).Lan(ionoscloud.LanProperties{
+		IpFailover: &failovers,
+	}).Execute()
+	return err
+}
+
+func (c *APIClient) GetIPBlock(ctx context.Context, id string) (ionoscloud.IpBlock, *ionoscloud.APIResponse, error) {
+	return c.client.IPBlocksApi.IpblocksFindById(ctx, id).Execute()
 }
 
 func (c *APIClient) DeleteVolume(ctx context.Context, datacenterId, volumeId string) (*ionoscloud.APIResponse, error) {

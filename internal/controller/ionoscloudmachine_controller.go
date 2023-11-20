@@ -414,9 +414,63 @@ func (r *IONOSCloudMachineReconciler) reconcileServer(ctx *context.MachineContex
 		return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, errors.New("server does not have an ip yet")
 	}
 
+	err = r.reconcileFailoverGroups(ctx, server)
+	if err != nil {
+		return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, err
+	}
+
 	conditions.MarkTrue(ctx.IONOSCloudMachine, v1alpha1.ServerCreatedCondition)
 
 	return nil, nil
+}
+
+func (r *IONOSCloudMachineReconciler) reconcileFailoverGroups(ctx *context.MachineContext, server ionoscloud.Server) error {
+	for i := range ctx.IONOSCloudCluster.Spec.Lans {
+		lanSpec := &ctx.IONOSCloudCluster.Spec.Lans[i]
+		serverNic := serverNicByLan(server, lanSpec)
+		if serverNic == nil {
+			continue
+		}
+		for k := range lanSpec.FailoverGroups {
+			group := &lanSpec.FailoverGroups[k]
+			ctx.Logger.Info("Reconciling failover group " + group.ID)
+
+			block, _, err := ctx.IONOSClient.GetIPBlock(ctx, group.ID)
+			if err != nil {
+				return err
+			}
+			for _, ip := range *block.Properties.Ips {
+				err = ctx.IONOSClient.EnsureAdditionalIPOnNic(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.ProviderID, *serverNic.Id, ip)
+				if err != nil {
+					return err
+				}
+				lanId := fmt.Sprint(*lanSpec.LanID)
+				lan, _, err := ctx.IONOSClient.GetLan(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, lanId)
+				if err != nil {
+					return err
+				}
+				registered := false
+				if lan.Properties.IpFailover != nil {
+					for _, f := range *lan.Properties.IpFailover {
+						if *f.Ip == ip {
+							registered = true
+							continue
+						}
+					}
+					if registered {
+						continue
+					}
+				}
+
+				//todo only once per cluster and change if machine gets delete
+				err = ctx.IONOSClient.EnsureFailoverIPOnLan(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, lanId, ip, *serverNic.Id)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (r *IONOSCloudMachineReconciler) reconcileLoadBalancerForwardingRule(ctx *context.MachineContext) (*reconcile.Result, error) {
@@ -492,6 +546,17 @@ func (r *IONOSCloudMachineReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&v1alpha1.IONOSCloudMachine{}).
 		WithEventFilter(predicates.ResourceIsNotExternallyManaged(r.Logger)).
 		Complete(r)
+}
+
+func serverNicByLan(server ionoscloud.Server, lan *v1alpha1.IONOSLanSpec) *ionoscloud.Nic {
+	var serverNic *ionoscloud.Nic
+	for _, nic := range *server.Entities.Nics.Items {
+		if *nic.Properties.Lan == *lan.LanID {
+			serverNic = &nic
+			break
+		}
+	}
+	return serverNic
 }
 
 func findAndDeleteByIP(s []ionoscloud.NetworkLoadBalancerForwardingRuleTarget, item ionoscloud.NetworkLoadBalancerForwardingRuleTarget) []ionoscloud.NetworkLoadBalancerForwardingRuleTarget {
