@@ -25,4 +25,4 @@ spec:
         apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
         kind: IONOSCloudMachineTemplate
         name: ionoscloudcluster-worker
-      version: "1.25.11"
+      version: "1.27.6"

@@ -47,4 +47,4 @@ spec:
       kind: IONOSCloudMachineTemplate
       name: ionoscloudcluster-control-plane
   replicas: 3
-  version: "1.25.11"
+  version: "1.27.6"

@@ -59,6 +59,18 @@ spec:
               lans:
                 items:
                   properties:
+                    failoverGroups:
+                      items:
+                        properties:
+                          id:
+                            type: string
+                        required:
+                        - id
+                        type: object
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - id
+                      x-kubernetes-list-type: map
                     lanID:
                       format: int32
                       type: integer

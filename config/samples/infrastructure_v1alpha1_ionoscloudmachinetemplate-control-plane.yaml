@@ -9,7 +9,7 @@ spec:
       ram: 4096
       cpuFamily: "INTEL_SKYLAKE"
       bootVolume:
-        image: "a9152e16-2482-11ee-9eb0-82cf6aa9b8c3"
+        image: "3c2a7c7a-8488-11ee-811f-826459b45e91"
         type: "HDD"
         size: "25"
       nics:
