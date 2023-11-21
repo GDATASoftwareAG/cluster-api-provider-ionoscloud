@@ -26,12 +26,12 @@ type FakeClient struct {
 	CredentialsAreValid bool
 }
 
-func (f FakeClient) EnsureFailoverIPOnLan(ctx context.Context, datacenterId, lanId, ip, nicUuid string) error {
+func (f FakeClient) EnsureFailoverIPsOnLan(_ context.Context, _, _ string, _ string, _ []string) error {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (f FakeClient) EnsureAdditionalIPOnNic(ctx context.Context, datacenterId, serverId, nic, ip string) error {
+func (f FakeClient) EnsureAdditionalIPsOnNic(_ context.Context, _, _, _ string, _ []string) error {
 	//TODO implement me
 	panic("implement me")
 }
