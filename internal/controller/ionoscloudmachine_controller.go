@@ -46,6 +46,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+var defaultMachineRetryIntervalOnBusy = time.Second * 30
+
 // IONOSCloudMachineReconciler reconciles a IONOSCloudMachine object
 type IONOSCloudMachineReconciler struct {
 	*context.ControllerContext
@@ -391,7 +393,8 @@ func (r *IONOSCloudMachineReconciler) reconcileServer(ctx *context.MachineContex
 	}
 
 	if resp.StatusCode == http.StatusNotFound || (server.Metadata != nil && *server.Metadata.State == STATE_BUSY) {
-		return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, errors.New("server not yet created")
+		ctx.Logger.Info("server not yet created")
+		return &reconcile.Result{RequeueAfter: defaultMachineRetryIntervalOnBusy}, nil
 	}
 	ipObtained := false
 	nics := *server.Entities.Nics.Items
@@ -411,15 +414,17 @@ func (r *IONOSCloudMachineReconciler) reconcileServer(ctx *context.MachineContex
 	}
 
 	if !ipObtained {
-		return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, errors.New("server does not have an ip yet")
-	}
-
-	err = r.reconcileFailoverGroups(ctx, server)
-	if err != nil {
-		return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, err
+		ctx.Logger.Info("server does not have an ip yet")
+		return &reconcile.Result{RequeueAfter: defaultMachineRetryIntervalOnBusy}, nil
 	}
 
 	conditions.MarkTrue(ctx.IONOSCloudMachine, v1alpha1.ServerCreatedCondition)
+
+	err = r.reconcileFailoverGroups(ctx, server)
+	if err != nil {
+		ctx.Logger.Info("failoverGroup not yet correct assigned", "err", err.Error())
+		return &reconcile.Result{RequeueAfter: defaultMachineRetryIntervalOnBusy}, nil
+	}
 
 	return nil, nil
 }
@@ -440,13 +445,13 @@ func (r *IONOSCloudMachineReconciler) reconcileFailoverGroups(ctx *context.Machi
 				return err
 			}
 			ips := *block.Properties.Ips
-			err = ctx.IONOSClient.EnsureAdditionalIPsOnNic(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.ProviderID, *serverNic.Id, ips)
+			//TODO: only once per cluster and change if machine gets delete
+			lanId := fmt.Sprint(*lanSpec.LanID)
+			err = ctx.IONOSClient.EnsureFailoverIPsOnLan(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, lanId, *serverNic.Id, ips)
 			if err != nil {
 				return err
 			}
-			//todo only once per cluster and change if machine gets delete
-			lanId := fmt.Sprint(*lanSpec.LanID)
-			err = ctx.IONOSClient.EnsureFailoverIPsOnLan(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, lanId, *serverNic.Id, ips)
+			err = ctx.IONOSClient.EnsureAdditionalIPsOnNic(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.ProviderID, *serverNic.Id, ips)
 			if err != nil {
 				return err
 			}
