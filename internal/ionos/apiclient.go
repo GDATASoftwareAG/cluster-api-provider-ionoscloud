@@ -142,6 +142,7 @@ func (c *APIClient) EnsureFailoverIPsOnLan(ctx context.Context, datacenterId, la
 			})
 		}
 	}
+	fmt.Printf("requireRegister %t, failovers %d", requireRegister, len(failovers))
 	if !requireRegister {
 		return nil
 	}

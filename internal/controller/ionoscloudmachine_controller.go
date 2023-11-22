@@ -20,6 +20,7 @@ import (
 	goctx "context"
 	b64 "encoding/base64"
 	"fmt"
+	"go.uber.org/multierr"
 	"net/http"
 	"strings"
 	"time"
@@ -422,7 +423,7 @@ func (r *IONOSCloudMachineReconciler) reconcileServer(ctx *context.MachineContex
 
 	err = r.reconcileFailoverGroups(ctx, server)
 	if err != nil {
-		ctx.Logger.Info("failoverGroup not yet correct assigned", "err", err.Error())
+		ctx.Logger.Error(err, "failoverGroup not yet correct assigned")
 		return &reconcile.Result{RequeueAfter: defaultMachineRetryIntervalOnBusy}, nil
 	}
 
@@ -430,6 +431,7 @@ func (r *IONOSCloudMachineReconciler) reconcileServer(ctx *context.MachineContex
 }
 
 func (r *IONOSCloudMachineReconciler) reconcileFailoverGroups(ctx *context.MachineContext, server ionoscloud.Server) error {
+	var errors error
 	for i := range ctx.IONOSCloudCluster.Spec.Lans {
 		lanSpec := &ctx.IONOSCloudCluster.Spec.Lans[i]
 		serverNic := serverNicByLan(server, lanSpec)
@@ -439,25 +441,25 @@ func (r *IONOSCloudMachineReconciler) reconcileFailoverGroups(ctx *context.Machi
 		for k := range lanSpec.FailoverGroups {
 			group := &lanSpec.FailoverGroups[k]
 			ctx.Logger.Info("Reconciling failover group " + group.ID)
-
 			block, _, err := ctx.IONOSClient.GetIPBlock(ctx, group.ID)
 			if err != nil {
-				return err
+				errors = multierr.Append(errors, err)
+				continue
 			}
 			ips := *block.Properties.Ips
+			err = ctx.IONOSClient.EnsureAdditionalIPsOnNic(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.ProviderID, *serverNic.Id, ips)
+			if err != nil {
+				errors = multierr.Append(errors, err)
+			}
 			//TODO: only once per cluster and change if machine gets delete
 			lanId := fmt.Sprint(*lanSpec.LanID)
 			err = ctx.IONOSClient.EnsureFailoverIPsOnLan(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, lanId, *serverNic.Id, ips)
 			if err != nil {
-				return err
-			}
-			err = ctx.IONOSClient.EnsureAdditionalIPsOnNic(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.ProviderID, *serverNic.Id, ips)
-			if err != nil {
-				return err
+				errors = multierr.Append(errors, err)
 			}
 		}
 	}
-	return nil
+	return errors
 }
 
 func (r *IONOSCloudMachineReconciler) reconcileLoadBalancerForwardingRule(ctx *context.MachineContext) (*reconcile.Result, error) {
