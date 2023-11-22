@@ -26,12 +26,12 @@ type FakeClient struct {
 	CredentialsAreValid bool
 }
 
-func (f FakeClient) EnsureFailoverIPsOnLan(_ context.Context, _, _ string, _ string, _ []string) error {
+func (f FakeClient) PatchLanWithIPFailover(_ context.Context, _, _ string, _ []ionoscloud.IPFailover) error {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (f FakeClient) EnsureAdditionalIPsOnNic(_ context.Context, _, _, _ string, _ []string) error {
+func (f FakeClient) PatchServerNicsWithIPs(_ context.Context, _, _, _ string, _ []string) error {
 	//TODO implement me
 	panic("implement me")
 }
