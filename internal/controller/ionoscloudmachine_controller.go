@@ -439,34 +439,16 @@ func (r *IONOSCloudMachineReconciler) reconcileFailoverGroups(ctx *context.Machi
 			if err != nil {
 				return err
 			}
-			for _, ip := range *block.Properties.Ips {
-				err = ctx.IONOSClient.EnsureAdditionalIPOnNic(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.ProviderID, *serverNic.Id, ip)
-				if err != nil {
-					return err
-				}
-				lanId := fmt.Sprint(*lanSpec.LanID)
-				lan, _, err := ctx.IONOSClient.GetLan(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, lanId)
-				if err != nil {
-					return err
-				}
-				registered := false
-				if lan.Properties.IpFailover != nil {
-					for _, f := range *lan.Properties.IpFailover {
-						if *f.Ip == ip {
-							registered = true
-							continue
-						}
-					}
-					if registered {
-						continue
-					}
-				}
-
-				//todo only once per cluster and change if machine gets delete
-				err = ctx.IONOSClient.EnsureFailoverIPOnLan(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, lanId, ip, *serverNic.Id)
-				if err != nil {
-					return err
-				}
+			ips := *block.Properties.Ips
+			err = ctx.IONOSClient.EnsureAdditionalIPsOnNic(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.ProviderID, *serverNic.Id, ips)
+			if err != nil {
+				return err
+			}
+			//todo only once per cluster and change if machine gets delete
+			lanId := fmt.Sprint(*lanSpec.LanID)
+			err = ctx.IONOSClient.EnsureFailoverIPsOnLan(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, lanId, *serverNic.Id, ips)
+			if err != nil {
+				return err
 			}
 		}
 	}
