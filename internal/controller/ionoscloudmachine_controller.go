@@ -20,10 +20,13 @@ import (
 	goctx "context"
 	b64 "encoding/base64"
 	"fmt"
-	"go.uber.org/multierr"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/internal/ionos"
+
+	"go.uber.org/multierr"
 
 	v1alpha1 "github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/api/v1alpha1"
 	"github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/internal/context"
@@ -47,6 +50,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+const csiVolumePrefix = "csi-pv."
+
 var defaultMachineRetryIntervalOnBusy = time.Second * 30
 
 // IONOSCloudMachineReconciler reconciles a IONOSCloudMachine object
@@ -67,7 +72,7 @@ type IONOSCloudMachineReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.15.0/pkg/reconcile
 func (r *IONOSCloudMachineReconciler) Reconcile(ctx goctx.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	logger := r.Logger.WithName(req.Namespace).WithName(req.Name)
-	logger.Info("Starting Reconcile ionoscloudMachine")
+	logger.Info("Starting Reconcile IONOSCloudMachine")
 
 	// Fetch the ionosCloudMachine instance
 	ionoscloudMachine := &v1alpha1.IONOSCloudMachine{}
@@ -180,11 +185,22 @@ func (r *IONOSCloudMachineReconciler) reconcileDelete(ctx *context.MachineContex
 			}
 
 			for _, volume := range *server.Entities.Volumes.Items {
+				if strings.HasPrefix(*volume.Properties.Name, csiVolumePrefix) { //ignore csi volumes
+					continue
+				}
 				_, err = ctx.IONOSClient.DeleteVolume(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, *volume.Id)
 				if err != nil {
 					return reconcile.Result{}, err
 				}
 			}
+		}
+
+		// ensure server is deleted
+		_, resp, err = ctx.IONOSClient.GetServer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.ProviderID)
+		if resp.StatusCode == http.StatusOK {
+			return reconcile.Result{RequeueAfter: defaultMachineRetryIntervalOnBusy}, nil
+		} else if resp.StatusCode != http.StatusNotFound {
+			return reconcile.Result{}, err
 		}
 
 		if err = r.reconcileDeleteLoadBalancerForwardingRule(ctx); err != nil {
@@ -255,19 +271,23 @@ func (r *IONOSCloudMachineReconciler) reconcileDeleteLoadBalancerForwardingRule(
 }
 
 func (r *IONOSCloudMachineReconciler) reconcileNormal(ctx *context.MachineContext) (reconcile.Result, error) {
-	ctx.Logger.Info("Reconciling IONOSCloudCluster")
+	ctx.Logger.Info("Reconciling IONOSCloudMachine")
 
 	// If the IONOSCloudMachine doesn't have our finalizer, add it.
 	ctrlutil.AddFinalizer(ctx.IONOSCloudMachine, v1alpha1.MachineFinalizer)
 
 	if result, err := r.reconcileServer(ctx); err != nil {
 		conditions.MarkFalse(ctx.IONOSCloudMachine, v1alpha1.ServerCreatedCondition, v1alpha1.ServerCreationFailedReason, clusterv1.ConditionSeverityError, err.Error())
-		return *result, err
+		return *result, errors.Wrap(err, "failed reconcileServer")
+	} else if result != nil {
+		return *result, nil
 	}
 
 	if result, err := r.reconcileLoadBalancerForwardingRule(ctx); err != nil {
 		conditions.MarkFalse(ctx.IONOSCloudMachine, v1alpha1.LoadBalancerForwardingRuleCreatedCondition, v1alpha1.LoadBalancerForwardingRuleCreationFailedReason, clusterv1.ConditionSeverityError, err.Error())
-		return *result, err
+		return *result, errors.Wrap(err, "failed reconcileLoadBalancerForwardingRule")
+	} else if result != nil {
+		return *result, nil
 	}
 
 	server, _, err := ctx.IONOSClient.GetServer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.ProviderID)
@@ -431,7 +451,7 @@ func (r *IONOSCloudMachineReconciler) reconcileServer(ctx *context.MachineContex
 }
 
 func (r *IONOSCloudMachineReconciler) reconcileFailoverGroups(ctx *context.MachineContext, server ionoscloud.Server) error {
-	var errors error
+	var multiErr error
 	for i := range ctx.IONOSCloudCluster.Spec.Lans {
 		lanSpec := &ctx.IONOSCloudCluster.Spec.Lans[i]
 		serverNic := serverNicByLan(server, lanSpec)
@@ -443,23 +463,22 @@ func (r *IONOSCloudMachineReconciler) reconcileFailoverGroups(ctx *context.Machi
 			ctx.Logger.Info("Reconciling failover group " + group.ID)
 			block, _, err := ctx.IONOSClient.GetIPBlock(ctx, group.ID)
 			if err != nil {
-				errors = multierr.Append(errors, err)
+				multiErr = multierr.Append(multiErr, err)
 				continue
 			}
 			ips := *block.Properties.Ips
-			err = ctx.IONOSClient.EnsureAdditionalIPsOnNic(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.ProviderID, *serverNic.Id, ips)
+			err = r.reconcileNicsWithAdditionalIPs(ctx, *serverNic, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.ProviderID, ips)
 			if err != nil {
-				errors = multierr.Append(errors, err)
+				multiErr = multierr.Append(multiErr, err)
 			}
-			//TODO: only once per cluster and change if machine gets delete
 			lanId := fmt.Sprint(*lanSpec.LanID)
-			err = ctx.IONOSClient.EnsureFailoverIPsOnLan(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, lanId, *serverNic.Id, ips)
+			err = r.reconcileLanWithAdditionalIPFailover(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, lanId, ips)
 			if err != nil {
-				errors = multierr.Append(errors, err)
+				multiErr = multierr.Append(multiErr, err)
 			}
 		}
 	}
-	return errors
+	return multiErr
 }
 
 func (r *IONOSCloudMachineReconciler) reconcileLoadBalancerForwardingRule(ctx *context.MachineContext) (*reconcile.Result, error) {
@@ -535,6 +554,91 @@ func (r *IONOSCloudMachineReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&v1alpha1.IONOSCloudMachine{}).
 		WithEventFilter(predicates.ResourceIsNotExternallyManaged(r.Logger)).
 		Complete(r)
+}
+
+func (r *IONOSCloudMachineReconciler) reconcileNicsWithAdditionalIPs(ctx *context.MachineContext, nic ionoscloud.Nic, datacenterId, serverId string, toEnsureIPs []string) error {
+	requirePatch := false
+	ips := make([]string, 0)
+	if nic.Properties.Ips != nil {
+		ips = *nic.Properties.Ips
+	}
+	for _, ip := range toEnsureIPs {
+		toAdd := true
+		for i := range ips {
+			if ips[i] == ip {
+				toAdd = false
+				break
+			}
+		}
+		if toAdd {
+			requirePatch = true
+			ips = append(ips, ip)
+		}
+	}
+	if requirePatch {
+		return ctx.IONOSClient.PatchServerNicsWithIPs(ctx, datacenterId, serverId, *nic.Id, ips)
+	}
+	return nil
+}
+
+func (r *IONOSCloudMachineReconciler) reconcileLanWithAdditionalIPFailover(ctx *context.MachineContext, datacenterId, lanId string, toEnsureIPs []string) error {
+	reqCtx := goctx.WithValue(ctx.Context, ionos.DepthKey, int32(2))
+	lan, _, err := ctx.IONOSClient.GetLan(reqCtx, datacenterId, lanId)
+	if err != nil {
+		return err
+	}
+	nicUuid := ""
+	nics := *lan.Entities.Nics.Items
+	for i := range nics {
+		nic := &nics[i]
+		if nic.Properties.Ips == nil {
+			continue
+		}
+		hasIps := 0
+		for k := range toEnsureIPs {
+			for _, s := range *nic.Properties.Ips {
+				if s == toEnsureIPs[k] {
+					hasIps += 1
+					break
+				}
+			}
+		}
+		if len(toEnsureIPs) == hasIps {
+			nicUuid = *nic.Id
+			break
+		}
+	}
+	if nicUuid == "" {
+		return errors.New("no nic found with all ips")
+	}
+	ctx.Logger.Info("nic with all ips", "nicUuid", nicUuid, "toEnsureIPs", toEnsureIPs)
+	// always override
+	requirePatch := false
+	failovers := make([]ionoscloud.IPFailover, 0)
+	if lan.Properties.IpFailover != nil {
+		failovers = append(failovers, *lan.Properties.IpFailover...)
+	}
+	for k := range toEnsureIPs {
+		toAdd := true
+		for i := range failovers {
+			if *failovers[i].Ip == toEnsureIPs[k] {
+				toAdd = false
+				break
+			}
+		}
+		if toAdd {
+			requirePatch = true
+			failovers = append(failovers, ionoscloud.IPFailover{
+				Ip:      &toEnsureIPs[k],
+				NicUuid: &nicUuid,
+			})
+		}
+	}
+	ctx.Logger.Info("patch", "requirePatch", requirePatch, "lanId", lanId, "failovers", failovers)
+	if requirePatch {
+		return ctx.IONOSClient.PatchLanWithIPFailover(ctx, datacenterId, lanId, failovers)
+	}
+	return nil
 }
 
 func serverNicByLan(server ionoscloud.Server, lan *v1alpha1.IONOSLanSpec) *ionoscloud.Nic {
