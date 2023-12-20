@@ -184,6 +184,20 @@ spec:
                   - type
                   type: object
                 type: array
+              latestRequests:
+                description: LatestRequests stores the latest requests sent to the
+                  IONOS Cloud API. The latest request is at the end
+                items:
+                  properties:
+                    id:
+                      type: string
+                    state:
+                      type: string
+                  required:
+                  - id
+                  - state
+                  type: object
+                type: array
               ready:
                 description: Ready is true when the provider resource is ready.
                 type: boolean
