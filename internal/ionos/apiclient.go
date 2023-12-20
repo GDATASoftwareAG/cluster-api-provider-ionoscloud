@@ -3,6 +3,7 @@ package ionos
 import (
 	"context"
 	"fmt"
+	"github.com/pkg/errors"
 	"strings"
 	"sync"
 
@@ -93,17 +94,31 @@ type APIClient struct {
 }
 
 func (c *APIClient) PatchLanWithIPFailover(ctx context.Context, datacenterId, lanId string, ipFailover []ionoscloud.IPFailover) error {
-	_, _, err := c.client.LANsApi.DatacentersLansPatch(ctx, datacenterId, lanId).Lan(ionoscloud.LanProperties{
+	_, response, err := c.client.LANsApi.DatacentersLansPatch(ctx, datacenterId, lanId).Lan(ionoscloud.LanProperties{
 		IpFailover: &ipFailover,
 	}).Execute()
+
+	if err != nil {
+		return err
+	}
+
+	err = c.waitForRequestToBeDone(ctx, response)
+
 	return err
 }
 
 func (c *APIClient) PatchServerNicsWithIPs(ctx context.Context, datacenterId, serverId, nicUuid string, ips []string) error {
 	serverId = strings.TrimPrefix(serverId, "ionos://")
-	_, _, err := c.client.NetworkInterfacesApi.DatacentersServersNicsPatch(ctx, datacenterId, serverId, nicUuid).Nic(ionoscloud.NicProperties{
+	_, response, err := c.client.NetworkInterfacesApi.DatacentersServersNicsPatch(ctx, datacenterId, serverId, nicUuid).Nic(ionoscloud.NicProperties{
 		Ips: &ips,
 	}).Execute()
+
+	if err != nil {
+		return err
+	}
+
+	err = c.waitForRequestToBeDone(ctx, response)
+
 	return err
 }
 
@@ -112,12 +127,27 @@ func (c *APIClient) GetIPBlock(ctx context.Context, id string) (ionoscloud.IpBlo
 }
 
 func (c *APIClient) DeleteVolume(ctx context.Context, datacenterId, volumeId string) (*ionoscloud.APIResponse, error) {
-	return c.client.VolumesApi.DatacentersVolumesDelete(ctx, datacenterId, volumeId).Execute()
+	response, err := c.client.VolumesApi.DatacentersVolumesDelete(ctx, datacenterId, volumeId).Execute()
+	if err != nil {
+		return response, err
+	}
+
+	err = c.waitForRequestToBeDone(ctx, response)
+
+	return response, err
 }
 
 func (c *APIClient) DeleteServer(ctx context.Context, datacenterId, serverId string) (*ionoscloud.APIResponse, error) {
 	serverId = strings.TrimPrefix(serverId, "ionos://")
-	return c.client.ServersApi.DatacentersServersDelete(ctx, datacenterId, serverId).Execute()
+	response, err := c.client.ServersApi.DatacentersServersDelete(ctx, datacenterId, serverId).Execute()
+
+	if err != nil {
+		return response, err
+	}
+
+	err = c.waitForRequestToBeDone(ctx, response)
+
+	return response, err
 }
 
 func (c *APIClient) APIInfo(ctx context.Context) (info ionoscloud.Info, response *ionoscloud.APIResponse, err error) {
@@ -125,7 +155,15 @@ func (c *APIClient) APIInfo(ctx context.Context) (info ionoscloud.Info, response
 }
 
 func (c *APIClient) DeleteDatacenter(ctx context.Context, datacenterId string) (*ionoscloud.APIResponse, error) {
-	return c.client.DataCentersApi.DatacentersDelete(ctx, datacenterId).Execute()
+	response, err := c.client.DataCentersApi.DatacentersDelete(ctx, datacenterId).Execute()
+
+	if err != nil {
+		return response, err
+	}
+
+	err = c.waitForRequestToBeDone(ctx, response)
+
+	return response, err
 }
 
 func (c *APIClient) CreateDatacenter(ctx context.Context, name string, location v1alpha1.Location) (ionoscloud.Datacenter, *ionoscloud.APIResponse, error) {
@@ -135,22 +173,39 @@ func (c *APIClient) CreateDatacenter(ctx context.Context, name string, location 
 			Name:     &name,
 		},
 	}
-	return c.client.DataCentersApi.
+	dc, response, err := c.client.DataCentersApi.
 		DatacentersPost(ctx).
 		Datacenter(datacenter).
 		Execute()
+
+	if err != nil {
+		return dc, response, err
+	}
+
+	err = c.waitForRequestToBeDone(ctx, response)
+
+	return dc, response, err
 }
 
 func (c *APIClient) CreateLan(ctx context.Context, datacenterId string, public bool) (ionoscloud.LanPost, *ionoscloud.APIResponse, error) {
-	lan := ionoscloud.LanPost{
+	lanPost := ionoscloud.LanPost{
 		Properties: &ionoscloud.LanPropertiesPost{
 			Public: ionoscloud.ToPtr(public),
 		},
 	}
-	return c.client.LANsApi.
+
+	lan, response, err := c.client.LANsApi.
 		DatacentersLansPost(ctx, datacenterId).
-		Lan(lan).
+		Lan(lanPost).
 		Execute()
+
+	if err != nil {
+		return lan, response, err
+	}
+
+	err = c.waitForRequestToBeDone(ctx, response)
+
+	return lan, response, err
 }
 
 func (c *APIClient) GetLan(ctx context.Context, datacenterId, lanId string) (ionoscloud.Lan, *ionoscloud.APIResponse, error) {
@@ -166,10 +221,18 @@ func (c *APIClient) GetDatacenter(ctx context.Context, datacenterId string) (ion
 }
 
 func (c *APIClient) CreateLoadBalancer(ctx context.Context, datacenterId string, loadBalancer ionoscloud.NetworkLoadBalancer) (ionoscloud.NetworkLoadBalancer, *ionoscloud.APIResponse, error) {
-	return c.client.NetworkLoadBalancersApi.
+	lb, response, err := c.client.NetworkLoadBalancersApi.
 		DatacentersNetworkloadbalancersPost(ctx, datacenterId).
 		NetworkLoadBalancer(loadBalancer).
 		Execute()
+
+	if err != nil {
+		return lb, response, err
+	}
+
+	err = c.waitForRequestToBeDone(ctx, response)
+
+	return lb, response, err
 }
 
 func (c *APIClient) GetLoadBalancer(ctx context.Context, datacenterId, loadBalancerId string) (ionoscloud.NetworkLoadBalancer, *ionoscloud.APIResponse, error) {
@@ -186,10 +249,18 @@ func (c *APIClient) GetLoadBalancerForwardingRules(ctx context.Context, datacent
 }
 
 func (c *APIClient) PatchLoadBalancerForwardingRule(ctx context.Context, datacenterId, loadBalancerId, ruleId string, properties ionoscloud.NetworkLoadBalancerForwardingRuleProperties) (ionoscloud.NetworkLoadBalancerForwardingRule, *ionoscloud.APIResponse, error) {
-	return c.client.NetworkLoadBalancersApi.
+	rule, response, err := c.client.NetworkLoadBalancersApi.
 		DatacentersNetworkloadbalancersForwardingrulesPatch(ctx, datacenterId, loadBalancerId, ruleId).
 		NetworkLoadBalancerForwardingRuleProperties(properties).
 		Execute()
+
+	if err != nil {
+		return rule, response, err
+	}
+
+	err = c.waitForRequestToBeDone(ctx, response)
+
+	return rule, response, err
 }
 
 func (c *APIClient) CreateServer(ctx context.Context, datacenterId string, server ionoscloud.Server) (ionoscloud.Server, *ionoscloud.APIResponse, error) {
@@ -198,6 +269,13 @@ func (c *APIClient) CreateServer(ctx context.Context, datacenterId string, serve
 	if server.Id != nil {
 		server.Id = ionoscloud.ToPtr(fmt.Sprintf("ionos://%s", *server.Id))
 	}
+
+	if err != nil {
+		return server, response, err
+	}
+
+	err = c.waitForRequestToBeDone(ctx, response)
+
 	return server, response, err
 }
 
@@ -209,4 +287,18 @@ func (c *APIClient) GetServer(ctx context.Context, datacenterId, serverId string
 		server.Id = ionoscloud.ToPtr(fmt.Sprintf("ionos://%s", *server.Id))
 	}
 	return server, resp, err
+}
+
+func (c *APIClient) waitForRequestToBeDone(ctx context.Context, resp *ionoscloud.APIResponse) error {
+	if resp == nil {
+		return errors.New("invalid response")
+	}
+
+	path := resp.Header.Get("location")
+
+	_, err := c.client.WaitForRequest(ctx, path)
+	if err != nil {
+		return fmt.Errorf("error waiting for status for %s : (%w)", path, err)
+	}
+	return nil
 }

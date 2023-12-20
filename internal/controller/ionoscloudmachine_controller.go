@@ -110,8 +110,8 @@ func (r *IONOSCloudMachineReconciler) Reconcile(ctx goctx.Context, req ctrl.Requ
 	}
 
 	if annotations.IsPaused(cluster, ionoscloudMachine) {
-		logger.Info("IONOSCloudMachine %s/%s linked to a cluster that is paused",
-			ionoscloudMachine.Namespace, ionoscloudMachine.Name)
+		logger.Info(fmt.Sprintf("IONOSCloudMachine %s/%s linked to a cluster that is paused",
+			ionoscloudMachine.Namespace, ionoscloudMachine.Name))
 		return reconcile.Result{}, nil
 	}
 
@@ -403,20 +403,17 @@ func (r *IONOSCloudMachineReconciler) reconcileServer(ctx *context.MachineContex
 		if err != nil {
 			return &reconcile.Result{}, errors.Wrapf(err, "error creating server %v", server)
 		}
+
 		ctx.IONOSCloudMachine.Spec.ProviderID = *server.Id
+
+		return &reconcile.Result{}, nil
 	}
 
-	// check status
-	server, resp, err := ctx.IONOSClient.GetServer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.ProviderID)
-
-	if err != nil && resp.StatusCode != http.StatusNotFound {
+	server, _, err := ctx.IONOSClient.GetServer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.ProviderID)
+	if err != nil {
 		return &reconcile.Result{}, errors.Wrap(err, "error getting server")
 	}
 
-	if resp.StatusCode == http.StatusNotFound || (server.Metadata != nil && *server.Metadata.State == STATE_BUSY) {
-		ctx.Logger.Info("server not yet created")
-		return &reconcile.Result{RequeueAfter: defaultMachineRetryIntervalOnBusy}, nil
-	}
 	ipObtained := false
 	nics := *server.Entities.Nics.Items
 	for _, nic := range nics {

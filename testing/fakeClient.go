@@ -229,6 +229,7 @@ func (f FakeClient) CreateServer(_ context.Context, datacenterId string, server 
 	return server,
 		&ionoscloud.APIResponse{Response: &http.Response{
 			StatusCode: http.StatusOK,
+			Header:     map[string][]string{"Location": []string{"someRandomRequestPath"}},
 		}},
 		nil
 }
