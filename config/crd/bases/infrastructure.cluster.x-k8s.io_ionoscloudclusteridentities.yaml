@@ -14,7 +14,11 @@ spec:
     singular: ionoscloudclusteridentity
   scope: Cluster
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.hostUrl
+      name: HostUrl
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: IONOSCloudClusterIdentity is the Schema for the ionoscloudidentities

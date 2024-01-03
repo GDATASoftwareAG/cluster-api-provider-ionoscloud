@@ -14,7 +14,17 @@ spec:
     singular: ionoscloudmachine
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.cores
+      name: Cores
+      type: integer
+    - jsonPath: .spec.ram
+      name: Ram
+      type: integer
+    - jsonPath: .spec.providerID
+      name: ProviderID
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: IONOSCloudMachine is the Schema for the ionoscloudmachines API

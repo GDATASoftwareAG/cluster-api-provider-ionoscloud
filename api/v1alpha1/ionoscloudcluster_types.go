@@ -105,6 +105,8 @@ type IONOSCloudClusterStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="Location",type=string,JSONPath=`.spec.location`
+//+kubebuilder:printcolumn:name="DataCenterID",type=string,JSONPath=`.spec.dataCenterID`
 
 // IONOSCloudCluster is the Schema for the ionoscloudclusters API
 type IONOSCloudCluster struct {
