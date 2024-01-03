@@ -90,6 +90,10 @@ type IONOSCloudMachineStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="Cores",type=integer,JSONPath=`.spec.cores`
+//+kubebuilder:printcolumn:name="Ram",type=integer,JSONPath=`.spec.ram`
+//+kubebuilder:printcolumn:name="ProviderID",type=string,JSONPath=`.spec.providerID`
+
 
 // IONOSCloudMachine is the Schema for the ionoscloudmachines API
 type IONOSCloudMachine struct {
