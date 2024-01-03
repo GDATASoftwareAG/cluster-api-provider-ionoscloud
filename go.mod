@@ -2,8 +2,6 @@ module github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud
 
 go 1.21
 
-toolchain go1.21.4
-
 require (
 	github.com/go-logr/logr v1.3.0
 	github.com/ionos-cloud/sdk-go/v6 v6.1.9
