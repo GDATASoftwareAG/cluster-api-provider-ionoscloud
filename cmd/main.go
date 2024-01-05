@@ -22,6 +22,7 @@ import (
 	"github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/internal/context"
 	"github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/internal/ionos"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -71,9 +72,19 @@ func main() {
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
+		Scheme:             scheme,
+		MetricsBindAddress: metricsAddr,
+		Port:               9443,
+		/* if we retrieve IONOSCloudMachine from the cache we occasionally get outdated data,
+		which leads to the creation of multiple servers for a single IONOSCloudMachine,
+		because we check ProviderID to decide if we need to create a new server*/
+		Client: client.Options{
+			Cache: &client.CacheOptions{
+				DisableFor: []client.Object{
+					&infrastructurev1alpha1.IONOSCloudMachine{},
+				},
+			},
+		},
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "2606507e.cluster.x-k8s.io",
