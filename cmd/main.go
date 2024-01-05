@@ -22,7 +22,6 @@ import (
 	"github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/internal/context"
 	"github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/internal/ionos"
 	"os"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
