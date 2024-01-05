@@ -26,6 +26,14 @@ type FakeClient struct {
 	CredentialsAreValid bool
 }
 
+func (f FakeClient) GetRequestStatus(ctx context.Context, requestPath string) (*ionoscloud.RequestStatus, *ionoscloud.APIResponse, error) {
+	return &ionoscloud.RequestStatus{
+		Metadata: &ionoscloud.RequestStatusMetadata{
+			Status: ionoscloud.PtrString("DONE"),
+		},
+	}, &ionoscloud.APIResponse{}, nil
+}
+
 func (f FakeClient) PatchLanWithIPFailover(_ context.Context, _, _ string, _ []ionoscloud.IPFailover) error {
 	//TODO implement me
 	panic("implement me")
@@ -229,6 +237,7 @@ func (f FakeClient) CreateServer(_ context.Context, datacenterId string, server 
 	return server,
 		&ionoscloud.APIResponse{Response: &http.Response{
 			StatusCode: http.StatusOK,
+			Header:     map[string][]string{"Location": []string{"someRandomRequestPath"}},
 		}},
 		nil
 }

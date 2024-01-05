@@ -43,6 +43,10 @@ type DefaultAPI interface {
 	APIInfo(ctx context.Context) (ionoscloud.Info, *ionoscloud.APIResponse, error)
 }
 
+type RequestAPI interface {
+	GetRequestStatus(ctx context.Context, requestPath string) (*ionoscloud.RequestStatus, *ionoscloud.APIResponse, error)
+}
+
 type VolumeAPI interface {
 	DeleteVolume(ctx context.Context, datacenterId, volumeId string) (*ionoscloud.APIResponse, error)
 }
@@ -69,6 +73,7 @@ type Client interface {
 	DefaultAPI
 	VolumeAPI
 	IPBlockAPI
+	RequestAPI
 }
 
 func NewAPIClient(username, password, token, host string) Client {
@@ -209,4 +214,17 @@ func (c *APIClient) GetServer(ctx context.Context, datacenterId, serverId string
 		server.Id = ionoscloud.ToPtr(fmt.Sprintf("ionos://%s", *server.Id))
 	}
 	return server, resp, err
+}
+
+func (c *APIClient) GetRequestStatus(ctx context.Context, requestPath string) (*ionoscloud.RequestStatus, *ionoscloud.APIResponse, error) {
+	return c.client.GetRequestStatus(ctx, requestPath)
+}
+
+// GetRequestPath - returns location header value which is the path
+// used to poll the request for readiness
+func GetRequestPath(resp *ionoscloud.APIResponse) string {
+	if resp != nil {
+		return resp.Header.Get("location")
+	}
+	return ""
 }

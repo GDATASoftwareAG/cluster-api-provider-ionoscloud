@@ -162,6 +162,30 @@ func (r *IONOSCloudMachineReconciler) Reconcile(ctx goctx.Context, req ctrl.Requ
 		}
 	}()
 
+	if machineContext.IONOSCloudMachine.Status.LatestRequests != nil && len(machineContext.IONOSCloudMachine.Status.LatestRequests) > 0 {
+		lastRequest := &machineContext.IONOSCloudMachine.Status.LatestRequests[len(machineContext.IONOSCloudMachine.Status.LatestRequests)-1]
+
+		if lastRequest.State != v1alpha1.RequestStateDone {
+			state, _, err := machineContext.IONOSClient.GetRequestStatus(ctx, lastRequest.ID)
+
+			if err != nil {
+				return reconcile.Result{}, errors.Wrap(err, "error getting request status")
+			}
+			lastRequest.State = v1alpha1.RequestState(*state.Metadata.Status)
+
+			if lastRequest.State == v1alpha1.RequestStateFailed {
+				err := errors.New(fmt.Sprintf("last request failed: %s", *state.Metadata.Message))
+				conditions.MarkFalse(machineContext.IONOSCloudMachine, v1alpha1.ServerCreatedCondition, v1alpha1.ServerCreationFailedReason, clusterv1.ConditionSeverityError, err.Error())
+				return reconcile.Result{}, err
+			}
+
+			if lastRequest.State == v1alpha1.RequestStateQueued || lastRequest.State == v1alpha1.RequestStateRunning {
+				logger.Info(fmt.Sprintf("Last request has still not finished. Waiting for %s", defaultMachineRetryIntervalOnBusy))
+				return reconcile.Result{RequeueAfter: defaultMachineRetryIntervalOnBusy}, nil
+			}
+		}
+	}
+
 	// Handle deleted clusters
 	if !ionoscloudMachine.DeletionTimestamp.IsZero() {
 		return r.reconcileDelete(machineContext)
@@ -399,24 +423,32 @@ func (r *IONOSCloudMachineReconciler) reconcileServer(ctx *context.MachineContex
 				Type:      ionoscloud.ToPtr("ENTERPRISE"),
 			},
 		}
-		server, _, err = ctx.IONOSClient.CreateServer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, server)
+		var resp *ionoscloud.APIResponse
+		server, resp, err = ctx.IONOSClient.CreateServer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, server)
 		if err != nil {
 			return &reconcile.Result{}, errors.Wrapf(err, "error creating server %v", server)
 		}
+
+		// gets the Location Header value, where Request ID is stored, to interrogate the request status
+		requestPath := ionos.GetRequestPath(resp)
+		if requestPath == "" {
+			return &reconcile.Result{}, fmt.Errorf("error getting location from header")
+		}
+
+		ctx.IONOSCloudMachine.Status.LatestRequests = append(ctx.IONOSCloudMachine.Status.LatestRequests, v1alpha1.Request{
+			ID:    requestPath,
+			State: v1alpha1.RequestStateQueued,
+		})
+
 		ctx.IONOSCloudMachine.Spec.ProviderID = *server.Id
+		return &reconcile.Result{RequeueAfter: defaultMachineRetryIntervalOnBusy}, nil
 	}
 
-	// check status
-	server, resp, err := ctx.IONOSClient.GetServer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.ProviderID)
-
-	if err != nil && resp.StatusCode != http.StatusNotFound {
+	server, _, err := ctx.IONOSClient.GetServer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, ctx.IONOSCloudMachine.Spec.ProviderID)
+	if err != nil {
 		return &reconcile.Result{}, errors.Wrap(err, "error getting server")
 	}
 
-	if resp.StatusCode == http.StatusNotFound || (server.Metadata != nil && *server.Metadata.State == STATE_BUSY) {
-		ctx.Logger.Info("server not yet created")
-		return &reconcile.Result{RequeueAfter: defaultMachineRetryIntervalOnBusy}, nil
-	}
 	ipObtained := false
 	nics := *server.Entities.Nics.Items
 	for _, nic := range nics {

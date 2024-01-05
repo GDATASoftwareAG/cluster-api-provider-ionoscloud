@@ -28,7 +28,19 @@ const (
 	// ServerCreationFailedReason (Severity=Error) documents a controller detecting
 	// issues with the creation of the Server.
 	ServerCreationFailedReason = "ServerCreationFailed"
+
+	RequestStateQueued  RequestState = "QUEUED"
+	RequestStateRunning RequestState = "RUNNING"
+	RequestStateDone    RequestState = "DONE"
+	RequestStateFailed  RequestState = "FAILED"
 )
+
+type RequestState string
+
+type Request struct {
+	ID    string       `json:"id"`
+	State RequestState `json:"state"`
+}
 
 // IONOSCloudMachineSpec defines the desired state of IONOSCloudMachine
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.providerID) || has(self.providerID)", message="ProviderID is required once set"
@@ -86,6 +98,10 @@ type IONOSCloudMachineStatus struct {
 	// Conditions defines current service state of the IONOSCloudCluster.
 	// +optional
 	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
+
+	// LatestRequests stores the latest requests sent to the IONOS Cloud API. The latest request is at the end
+	// +optional
+	LatestRequests []Request `json:"latestRequests,omitempty"`
 }
 
 //+kubebuilder:object:root=true
