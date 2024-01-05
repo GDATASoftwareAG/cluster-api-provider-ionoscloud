@@ -30,6 +30,13 @@ const (
 	ServerCreationFailedReason = "ServerCreationFailed"
 )
 
+// +kubebuilder:validation:Enum=ENTERPRISE;CUBE;
+type Type string
+
+func (r Type) String() string {
+	return string(r)
+}
+
 // IONOSCloudMachineSpec defines the desired state of IONOSCloudMachine
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.providerID) || has(self.providerID)", message="ProviderID is required once set"
 type IONOSCloudMachineSpec struct {
@@ -51,7 +58,11 @@ type IONOSCloudMachineSpec struct {
 	// +kubebuilder:validation:Minimum=256
 	// +kubebuilder:validation:MultipleOf=256
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Ram is immutable"
-	Ram        *int32          `json:"ram"`
+	Ram *int32 `json:"ram"`
+
+	// The type of the VM
+	// +kubebuilder:default=ENTERPRISE
+	Type       Type            `json:"type"`
 	BootVolume IONOSVolumeSpec `json:"bootVolume"`
 
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="ProviderID is immutable"
