@@ -73,7 +73,7 @@ func main() {
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:             scheme,
+		Scheme: scheme,
 		/* if we retrieve IONOSCloudMachine from the cache we occasionally get outdated data,
 		which leads to the creation of multiple servers for a single IONOSCloudMachine,
 		because we check ProviderID to decide if we need to create a new server*/
