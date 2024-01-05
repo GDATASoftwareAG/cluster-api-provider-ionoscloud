@@ -94,7 +94,6 @@ type IONOSCloudMachineStatus struct {
 //+kubebuilder:printcolumn:name="Ram",type=integer,JSONPath=`.spec.ram`
 //+kubebuilder:printcolumn:name="ProviderID",type=string,JSONPath=`.spec.providerID`
 
-
 // IONOSCloudMachine is the Schema for the ionoscloudmachines API
 type IONOSCloudMachine struct {
 	metav1.TypeMeta   `json:",inline"`
