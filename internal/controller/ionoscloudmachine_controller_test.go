@@ -234,12 +234,6 @@ var _ = Describe("IONOSCloudMachine controller", func() {
 				return 0
 			}, timeout, interval).Should(Equal(1))
 		})
-
-		It("should not be possible to change immutable fields", func() {
-			capicMachine.Spec.Ram = ionoscloud.ToPtr(int32(256))
-			err := k8sClient.Update(ctx, capicMachine)
-			Expect(err).Should(HaveOccurred())
-		})
 	})
 
 	When("IONOSCloudMachine has been created", func() {

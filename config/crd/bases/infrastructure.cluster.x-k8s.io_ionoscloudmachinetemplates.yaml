@@ -135,9 +135,6 @@ spec:
                         minimum: 256
                         multipleOf: 256
                         type: integer
-                        x-kubernetes-validations:
-                        - message: Ram is immutable
-                          rule: self == oldSelf
                     required:
                     - bootVolume
                     - cores
