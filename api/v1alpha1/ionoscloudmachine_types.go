@@ -50,7 +50,6 @@ type IONOSCloudMachineSpec struct {
 	// The memory size for the enterprise server in MB, such as 2048.
 	// +kubebuilder:validation:Minimum=256
 	// +kubebuilder:validation:MultipleOf=256
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Ram is immutable"
 	Ram        *int32          `json:"ram"`
 	BootVolume IONOSVolumeSpec `json:"bootVolume"`
 
