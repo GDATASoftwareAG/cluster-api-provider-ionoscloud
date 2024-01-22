@@ -63,8 +63,7 @@ type IONOSVolumeSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Type is immutable"
 	Type string `json:"type"`
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Size is immutable"
-	Size string `json:"size"`
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Image is immutable"
+	Size  string `json:"size"`
 	Image string `json:"image"`
 	// Public SSH keys are set on the image as authorized keys for appropriate SSH login to the instance using the corresponding private key. This field may only be set in creation requests. When reading, it always returns null. SSH keys are only supported if a public Linux image is used for the volume creation.
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="SSHKeys is immutable"
