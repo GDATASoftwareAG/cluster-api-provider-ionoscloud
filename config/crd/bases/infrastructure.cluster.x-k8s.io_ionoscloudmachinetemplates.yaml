@@ -54,9 +54,6 @@ spec:
                         properties:
                           image:
                             type: string
-                            x-kubernetes-validations:
-                            - message: Image is immutable
-                              rule: self == oldSelf
                           size:
                             type: string
                             x-kubernetes-validations:
