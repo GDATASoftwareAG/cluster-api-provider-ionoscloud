@@ -34,7 +34,7 @@ type IPBlockAPI interface {
 }
 
 type LanAPI interface {
-	CreateLan(ctx context.Context, datacenterId string, public bool) (ionoscloud.LanPost, *ionoscloud.APIResponse, error)
+	CreateLan(ctx context.Context, datacenterId, name string, public bool) (ionoscloud.LanPost, *ionoscloud.APIResponse, error)
 	GetLan(ctx context.Context, datacenterId, lanId string) (ionoscloud.Lan, *ionoscloud.APIResponse, error)
 	PatchLanWithIPFailover(ctx context.Context, datacenterId, lanId string, ipFailover []ionoscloud.IPFailover) error
 }
@@ -141,9 +141,10 @@ func (c *APIClient) CreateDatacenter(ctx context.Context, name string, location 
 		Execute()
 }
 
-func (c *APIClient) CreateLan(ctx context.Context, datacenterId string, public bool) (ionoscloud.LanPost, *ionoscloud.APIResponse, error) {
+func (c *APIClient) CreateLan(ctx context.Context, datacenterId, name string, public bool) (ionoscloud.LanPost, *ionoscloud.APIResponse, error) {
 	lan := ionoscloud.LanPost{
 		Properties: &ionoscloud.LanPropertiesPost{
+			Name:   ionoscloud.ToPtr(name),
 			Public: ionoscloud.ToPtr(public),
 		},
 	}

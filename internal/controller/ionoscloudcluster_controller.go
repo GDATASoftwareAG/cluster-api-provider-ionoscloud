@@ -206,7 +206,7 @@ func (r *IONOSCloudClusterReconciler) reconcileLan(ctx *context.ClusterContext) 
 		lanSpec := &ctx.IONOSCloudCluster.Spec.Lans[i]
 		ctx.Logger.Info(fmt.Sprintf("Reconciling %s Lan", lanSpec.Name))
 		if lanSpec.LanID == nil {
-			lanID, err := createLan(ctx, lanSpec.Public)
+			lanID, err := createLan(ctx, lanSpec.Public, lanSpec.Name)
 			if err != nil {
 				return &reconcile.Result{}, err
 			}
@@ -290,8 +290,8 @@ func (r *IONOSCloudClusterReconciler) reconcileLoadBalancer(ctx *context.Cluster
 	return nil, nil
 }
 
-func createLan(ctx *context.ClusterContext, public bool) (*int32, error) {
-	lan, _, err := ctx.IONOSClient.CreateLan(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, public)
+func createLan(ctx *context.ClusterContext, public bool, name string) (*int32, error) {
+	lan, _, err := ctx.IONOSClient.CreateLan(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, name, public)
 	if err != nil {
 		return nil, err
 	}
