@@ -70,7 +70,7 @@ func (f FakeClient) APIInfo(_ context.Context) (info ionoscloud.Info, response *
 	return *ionoscloud.NewInfo(), ionoscloud.NewAPIResponseWithError("invalid credentials"), errors.New("invalid credentials")
 }
 
-func (f FakeClient) CreateLan(_ context.Context, datacenterId string, public bool) (ionoscloud.LanPost, *ionoscloud.APIResponse, error) {
+func (f FakeClient) CreateLan(_ context.Context, datacenterId, name string, public bool) (ionoscloud.LanPost, *ionoscloud.APIResponse, error) {
 	id := fmt.Sprint(len(*f.DataCenters[datacenterId].Entities.Lans.Items))
 	lan := ionoscloud.Lan{
 		Id: ionoscloud.ToPtr(id),
@@ -79,6 +79,7 @@ func (f FakeClient) CreateLan(_ context.Context, datacenterId string, public boo
 		},
 		Properties: &ionoscloud.LanProperties{
 			Public: ionoscloud.ToPtr(public),
+			Name:   ionoscloud.ToPtr(name),
 		},
 	}
 
