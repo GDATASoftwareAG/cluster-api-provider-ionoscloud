@@ -20,7 +20,9 @@ import (
 	goctx "context"
 	b64 "encoding/base64"
 	"fmt"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
+	"net/netip"
 	"strings"
 	"time"
 
@@ -39,6 +41,7 @@ import (
 	apitypes "k8s.io/apimachinery/pkg/types"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	bootstrapv1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
+	ipamv1 "sigs.k8s.io/cluster-api/exp/ipam/api/v1beta1"
 	clusterutilv1 "sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
 	"sigs.k8s.io/cluster-api/util/conditions"
@@ -64,6 +67,8 @@ type IONOSCloudMachineReconciler struct {
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=ionoscloudmachines,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=ionoscloudmachines/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=ionoscloudmachines/finalizers,verbs=update
+//+kubebuilder:rbac:groups=ipam.cluster.x-k8s.io,resources=ipaddressclaims,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=ipam.cluster.x-k8s.io,resources=ipaddresses,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -209,6 +214,34 @@ func (r *IONOSCloudMachineReconciler) reconcileDelete(ctx *context.MachineContex
 
 		conditions.MarkFalse(ctx.IONOSCloudCluster, v1alpha1.ServerCreatedCondition, "ServerDeleted", clusterv1.ConditionSeverityInfo, "")
 	}
+
+	// Remove finalizers from any ipam claims
+	for devIdx, device := range ctx.IONOSCloudMachine.Spec.Nics {
+		if device.PrimaryAddressFrom == nil {
+			continue
+		}
+
+		// check if claim exists
+		ipAddrClaim := &ipamv1.IPAddressClaim{}
+		ipAddrClaimName := IPAddressClaimName(ctx.IONOSCloudMachine.Name, devIdx, 0)
+		ctx.Logger.Info("removing finalizer", "IPAddressClaim", ipAddrClaimName)
+		ipAddrClaimKey := apitypes.NamespacedName{
+			Namespace: ctx.IONOSCloudMachine.Namespace,
+			Name:      ipAddrClaimName,
+		}
+		if err := ctx.K8sClient.Get(ctx, ipAddrClaimKey, ipAddrClaim); err != nil {
+			if apierrors.IsNotFound(err) {
+				continue
+			}
+			return reconcile.Result{}, errors.Wrapf(err, fmt.Sprintf("failed to find IPAddressClaim %q to remove the finalizer", ipAddrClaimName))
+		}
+		if ctrlutil.RemoveFinalizer(ipAddrClaim, v1alpha1.MachineFinalizer) {
+			if err := ctx.K8sClient.Update(ctx, ipAddrClaim); err != nil {
+				return reconcile.Result{}, errors.Wrapf(err, fmt.Sprintf("failed to update IPAddressClaim %q", ipAddrClaimName))
+			}
+		}
+	}
+
 	ctrlutil.RemoveFinalizer(ctx.IONOSCloudMachine, v1alpha1.MachineFinalizer)
 
 	return reconcile.Result{}, nil
@@ -275,6 +308,20 @@ func (r *IONOSCloudMachineReconciler) reconcileNormal(ctx *context.MachineContex
 
 	// If the IONOSCloudMachine doesn't have our finalizer, add it.
 	ctrlutil.AddFinalizer(ctx.IONOSCloudMachine, v1alpha1.MachineFinalizer)
+
+	if result, err := r.reconcileIPAddressClaims(ctx); err != nil {
+		conditions.MarkFalse(ctx.IONOSCloudMachine, v1alpha1.IPAddressClaimCreatedCondition, v1alpha1.IPAddressClaimCreationFailedReason, clusterv1.ConditionSeverityError, err.Error())
+		return *result, errors.Wrap(err, "failed reconcileIPAddressClaims")
+	} else if result != nil {
+		return *result, nil
+	}
+
+	if result, err := r.reconcileIPAddresses(ctx); err != nil {
+		conditions.MarkFalse(ctx.IONOSCloudMachine, v1alpha1.IPAddressCreatedCondition, v1alpha1.IPAddressCreationFailedReason, clusterv1.ConditionSeverityError, err.Error())
+		return *result, errors.Wrap(err, "failed reconcileIPAddresses")
+	} else if result != nil {
+		return *result, nil
+	}
 
 	if result, err := r.reconcileServer(ctx); err != nil {
 		conditions.MarkFalse(ctx.IONOSCloudMachine, v1alpha1.ServerCreatedCondition, v1alpha1.ServerCreationFailedReason, clusterv1.ConditionSeverityError, err.Error())
@@ -343,15 +390,136 @@ func (r *IONOSCloudMachineReconciler) getBootstrapData(ctx *context.MachineConte
 	return userdata, nil
 }
 
+// createIPAddressClaim sets up the ipam IPAddressClaim object and creates it in
+// the API.
+func createIPAddressClaim(ctx *context.MachineContext, ipAddrClaimName string, poolRef *corev1.TypedLocalObjectReference) error {
+	ctx.Logger.Info("creating IPAddressClaim", "name", ipAddrClaimName)
+
+	claim := &ipamv1.IPAddressClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ipAddrClaimName,
+			Namespace: ctx.IONOSCloudMachine.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "infrastructure.cluster.x-k8s.io/v1alpha1", //ctx.IONOSCloudMachine.APIVersion,
+					Kind:       "IONOSCloudMachine",                        //ctx.IONOSCloudMachine.Kind,
+					Name:       ctx.IONOSCloudMachine.Name,
+					UID:        ctx.IONOSCloudMachine.UID,
+				},
+			},
+			Finalizers: []string{v1alpha1.MachineFinalizer},
+		},
+		Spec: ipamv1.IPAddressClaimSpec{PoolRef: *poolRef},
+	}
+	return ctx.K8sClient.Create(ctx, claim)
+}
+
+// IPAddressClaimName returns a name given a VsphereVM name, deviceIndex, and
+// poolIndex.
+func IPAddressClaimName(vmName string, deviceIndex, poolIndex int) string {
+	return fmt.Sprintf("%s-%d-%d", vmName, deviceIndex, poolIndex)
+}
+
+// reconcileIPAddressClaims ensures that IONOSCloudMachines that are configured with
+// .spec.nics.PrimaryAddressFrom have corresponding IPAddressClaims.
+func (r *IONOSCloudMachineReconciler) reconcileIPAddressClaims(ctx *context.MachineContext) (*reconcile.Result, error) {
+	for devIdx, device := range ctx.IONOSCloudMachine.Spec.Nics {
+		if device.PrimaryAddressFrom == nil {
+			continue
+		}
+		// check if claim exists
+		ipAddrClaim := &ipamv1.IPAddressClaim{}
+		ipAddrClaimName := IPAddressClaimName(ctx.IONOSCloudMachine.Name, devIdx, 0)
+		ipAddrClaimKey := apitypes.NamespacedName{
+			Namespace: ctx.IONOSCloudMachine.Namespace,
+			Name:      ipAddrClaimName,
+		}
+		var err error
+		if err = ctx.K8sClient.Get(ctx, ipAddrClaimKey, ipAddrClaim); err != nil && !apierrors.IsNotFound(err) {
+			return &reconcile.Result{}, err
+		}
+		if err == nil {
+			ctx.Logger.Info("IPAddressClaim found", "name", ipAddrClaimName)
+		}
+		if apierrors.IsNotFound(err) {
+			if err = createIPAddressClaim(ctx, ipAddrClaimName, device.PrimaryAddressFrom); err != nil {
+				ctx.Logger.Error(err, "Creation of ipAddressClaim failed")
+				return &reconcile.Result{}, err
+			}
+		}
+	}
+	return nil, nil
+}
+
+// reconcileIPAddresses prevents successful reconciliation of a IONOSCloudMachine
+// until an IPAM Provider updates each IPAddressClaim associated to the
+// IONOSCloudMachine with a reference to an IPAddress. This function is a no-op if the
+// IONOSCloudMachine has no associated IPAddressClaims.
+func (r *IONOSCloudMachineReconciler) reconcileIPAddresses(ctx *context.MachineContext) (*reconcile.Result, error) {
+	for devIdx := range ctx.IONOSCloudMachine.Spec.Nics {
+		device := &ctx.IONOSCloudMachine.Spec.Nics[devIdx]
+		if device.PrimaryAddressFrom == nil {
+			continue
+		}
+
+		// check if claim exists
+		ipAddrClaim := &ipamv1.IPAddressClaim{}
+		ipAddrClaimName := IPAddressClaimName(ctx.IONOSCloudMachine.Name, devIdx, 0)
+		ipAddrClaimKey := apitypes.NamespacedName{
+			Namespace: ctx.IONOSCloudMachine.Namespace,
+			Name:      ipAddrClaimName,
+		}
+		var err error
+		ctx.Logger.Info("fetching IPAddressClaim", "name", ipAddrClaimKey.String())
+		if err = ctx.K8sClient.Get(ctx, ipAddrClaimKey, ipAddrClaim); err != nil && !apierrors.IsNotFound(err) {
+			ctx.Logger.Error(err, "error fetching IPAddressClaim", "name", ipAddrClaimName)
+			return &reconcile.Result{}, err
+		}
+
+		ipAddrName := ipAddrClaim.Status.AddressRef.Name
+		ctx.Logger.Info("fetched IPAddressClaim", "name", ipAddrClaimName, "IPAddressClaim.Status.AddressRef.Name", ipAddrName)
+		if ipAddrName == "" {
+			ctx.Logger.Info("IPAddress name was empty on IPAddressClaim", "name", ipAddrClaimName, "IPAddressClaim.Status.AddressRef.Name", ipAddrName)
+			msg := "Waiting for IPAddressClaim to have an IPAddress bound"
+			return &reconcile.Result{}, errors.New(msg)
+		}
+
+		ipAddr := &ipamv1.IPAddress{}
+		ipAddrKey := apitypes.NamespacedName{
+			Namespace: ctx.IONOSCloudMachine.Namespace,
+			Name:      ipAddrName,
+		}
+		if err = ctx.K8sClient.Get(ctx, ipAddrKey, ipAddr); err != nil {
+			return &reconcile.Result{}, err
+		}
+
+		toAdd := ipAddr.Spec.Address
+		ctx.Logger.Info("fetched IPAddress", "ip", toAdd)
+		_, err = netip.ParseAddr(toAdd)
+		if err != nil {
+			msg := fmt.Sprintf("IPAddress %s/%s has invalid ip address: %q",
+				ipAddrKey.Namespace,
+				ipAddrKey.Name,
+				toAdd,
+			)
+			conditions.MarkFalse(ctx.IONOSCloudMachine, v1alpha1.IPAddressCreatedCondition, msg, clusterv1.ConditionSeverityInfo, "")
+			return &reconcile.Result{RequeueAfter: defaultMachineRetryIntervalOnBusy}, err
+		}
+		device.PrimaryIP = ionoscloud.ToPtr(toAdd)
+		conditions.MarkTrue(ctx.IONOSCloudMachine, v1alpha1.IPAddressCreatedCondition)
+	}
+
+	return nil, nil
+}
+
 func (r *IONOSCloudMachineReconciler) reconcileServer(ctx *context.MachineContext) (*reconcile.Result, error) {
 	ctx.Logger.Info("Reconciling server")
+
 	if ctx.IONOSCloudMachine.Spec.ProviderID == "" {
-		// Get the bootstrap data.
 		bootstrapData, err := r.getBootstrapData(ctx)
 		if err != nil {
 			return &reconcile.Result{}, errors.Wrapf(err, "unable to get bootstrap data")
 		}
-
 		diskSize, err := utils.ToFloat32(ctx.IONOSCloudMachine.Spec.BootVolume.Size)
 		if err != nil {
 			return &reconcile.Result{}, errors.Wrapf(err, "invalid spec.bootvolume.disksize")
@@ -360,14 +528,24 @@ func (r *IONOSCloudMachineReconciler) reconcileServer(ctx *context.MachineContex
 		nics := make([]ionoscloud.Nic, 0)
 		for _, nic := range ctx.IONOSCloudMachine.Spec.Nics {
 			lanSpec := ctx.IONOSCloudCluster.Lan(nic.LanRef.Name)
+			var ips []string
+			if nic.PrimaryAddressFrom != nil {
+				if nic.PrimaryIP == nil || *nic.PrimaryIP == "" {
+					return &reconcile.Result{}, errors.New("unexpected empty PrimaryIP")
+				}
+				ips = append(ips, *nic.PrimaryIP)
+			}
 			nics = append(nics, ionoscloud.Nic{
 				Properties: &ionoscloud.NicProperties{
 					Dhcp: ionoscloud.ToPtr(true),
+					Ips:  &ips,
 					Lan:  lanSpec.LanID,
 					Name: ionoscloud.ToPtr(fmt.Sprintf("%s-nic-%s", ctx.IONOSCloudMachine.Name, lanSpec.Name)),
 				},
 			})
 		}
+		ctx.Logger.Info(fmt.Sprintf("nics: %v", nics))
+
 		server := ionoscloud.Server{
 			Entities: &ionoscloud.ServerEntities{
 				Nics: &ionoscloud.Nics{

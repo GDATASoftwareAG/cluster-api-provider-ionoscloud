@@ -17,17 +17,32 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 )
 
 const (
+	// IPAddressCreatedCondition documents the claim of the IPAddress
+	IPAddressCreatedCondition clusterv1.ConditionType = "IPAddressCreated"
+
+	// IPAddressCreationFailedReason (Severity=Error) documents a controller detecting
+	// issues with the creation of the IP address.
+	IPAddressCreationFailedReason = "IPAddressCreationFailed"
+
 	// ServerCreatedCondition documents the creation of the Server
 	ServerCreatedCondition clusterv1.ConditionType = "ServerCreated"
 
 	// ServerCreationFailedReason (Severity=Error) documents a controller detecting
 	// issues with the creation of the Server.
 	ServerCreationFailedReason = "ServerCreationFailed"
+
+	// IPAddressClaimCreatedCondition documents the creation of the IP Address
+	IPAddressClaimCreatedCondition clusterv1.ConditionType = "IPAddressClaimCreated"
+
+	// IPAddressClaimCreationFailedReason (Severity=Error) documents a controller detecting
+	// issues with the creation of the IP address.
+	IPAddressClaimCreationFailedReason = "IPAddressClaimCreationFailed"
 )
 
 // IONOSCloudMachineSpec defines the desired state of IONOSCloudMachine
@@ -73,6 +88,10 @@ type IONOSVolumeSpec struct {
 type IONOSNicSpec struct {
 	LanRef    IONOSLanRefSpec `json:"lanRef"`
 	PrimaryIP *string         `json:"primaryIP,omitempty"`
+	// PrimaryAddressFrom is an IPAddressPools that should be assigned
+	// to an IPAddressClaims.
+	// +optional
+	PrimaryAddressFrom *corev1.TypedLocalObjectReference `json:"primaryAddressFrom,omitempty"`
 	//NameTemplate string  `json:"nameTemplate"`
 }
 

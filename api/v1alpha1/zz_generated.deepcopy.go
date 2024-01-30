@@ -22,6 +22,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"k8s.io/api/core/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/cluster-api/api/v1beta1"
 )
@@ -616,6 +617,11 @@ func (in *IONOSNicSpec) DeepCopyInto(out *IONOSNicSpec) {
 		in, out := &in.PrimaryIP, &out.PrimaryIP
 		*out = new(string)
 		**out = **in
+	}
+	if in.PrimaryAddressFrom != nil {
+		in, out := &in.PrimaryAddressFrom, &out.PrimaryAddressFrom
+		*out = new(v1.TypedLocalObjectReference)
+		(*in).DeepCopyInto(*out)
 	}
 }
 

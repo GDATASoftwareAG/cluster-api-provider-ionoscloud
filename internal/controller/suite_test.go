@@ -24,6 +24,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"path/filepath"
+	ipamv1 "sigs.k8s.io/cluster-api/exp/ipam/api/v1beta1"
 	"testing"
 	"time"
 
@@ -91,6 +92,7 @@ var _ = BeforeSuite(func() {
 	requiredSchemes := []func(s *runtime.Scheme) error{
 		v1beta1.AddToScheme,
 		infrastructurev1alpha1.AddToScheme,
+		ipamv1.AddToScheme,
 	}
 
 	for _, requiredScheme := range requiredSchemes {
