@@ -10,7 +10,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	go.uber.org/multierr v1.11.0
 	k8s.io/api v0.29.1
-	k8s.io/apimachinery v0.29.1
+	k8s.io/apimachinery v0.29.2
 	k8s.io/client-go v0.29.1
 	sigs.k8s.io/cluster-api v1.6.1
 	sigs.k8s.io/controller-runtime v0.16.3
