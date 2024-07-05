@@ -3,13 +3,13 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.12.0
+    controller-gen.kubebuilder.io/version: v0.14.0
   name: ionoscloudmachinetemplates.infrastructure.cluster.x-k8s.io
 spec:
   group: infrastructure.cluster.x-k8s.io
   names:
-    kind: IONOSCloudMachineTemplate
-    listKind: IONOSCloudMachineTemplateList
+    kind: IonosCloudMachineTemplate
+    listKind: IonosCloudMachineTemplateList
     plural: ionoscloudmachinetemplates
     singular: ionoscloudmachinetemplate
   scope: Namespaced
@@ -17,111 +17,78 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: IONOSCloudMachineTemplate is the Schema for the ionoscloudmachinetemplates
-          API
+        description: IonosCloudMachineTemplate is the Schema for the ionoscloudmachinetemplates
+          API.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
           spec:
-            description: IONOSCloudMachineTemplateSpec defines the desired state of
-              IONOSCloudMachineTemplate
+            description: IonosCloudMachineTemplateSpec defines the desired state of
+              IonosCloudMachineTemplate.
             properties:
               template:
+                description: Template is the IonosCloudMachineTemplateResource for
+                  the IonosCloudMachineTemplate.
                 properties:
-                  spec:
-                    description: IONOSCloudMachineSpec defines the desired state of
-                      IONOSCloudMachine
+                  metadata:
+                    description: |-
+                      Standard object's metadata.
+                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
                     properties:
-                      availabilityZone:
-                        default: AUTO
-                        description: The availability zone in which the server should
-                          be provisioned.
-                        type: string
-                        x-kubernetes-validations:
-                        - message: AvailabilityZone is immutable
-                          rule: self == oldSelf
-                      bootVolume:
-                        properties:
-                          image:
-                            type: string
-                          size:
-                            type: string
-                            x-kubernetes-validations:
-                            - message: Size is immutable
-                              rule: self == oldSelf
-                          sshKeys:
-                            description: Public SSH keys are set on the image as authorized
-                              keys for appropriate SSH login to the instance using
-                              the corresponding private key. This field may only be
-                              set in creation requests. When reading, it always returns
-                              null. SSH keys are only supported if a public Linux
-                              image is used for the volume creation.
-                            items:
-                              type: string
-                            type: array
-                            x-kubernetes-validations:
-                            - message: SSHKeys is immutable
-                              rule: self == oldSelf
-                          type:
-                            type: string
-                            x-kubernetes-validations:
-                            - message: Type is immutable
-                              rule: self == oldSelf
-                        required:
-                        - image
-                        - size
-                        - type
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          Annotations is an unstructured key value map stored with a resource that may be
+                          set by external tools to store and retrieve arbitrary metadata. They are not
+                          queryable and should be preserved when modifying objects.
+                          More info: http://kubernetes.io/docs/user-guide/annotations
                         type: object
-                        x-kubernetes-validations:
-                        - message: SSHKeys is required once set
-                          rule: '!has(oldSelf.sshKeys) || has(self.sshKeys)'
-                      cores:
-                        description: The total number of cores for the enterprise
-                          server.
-                        format: int32
-                        minimum: 1
-                        type: integer
-                      cpuFamily:
-                        description: CPU architecture on which server gets provisioned;
-                          not all CPU architectures are available in all datacenter
-                          regions; available CPU architectures can be retrieved from
-                          the datacenter resource; must not be provided for CUBE servers.
-                        minLength: 1
-                        type: string
-                        x-kubernetes-validations:
-                        - message: CpuFamily is immutable
-                          rule: self == oldSelf
-                      name:
-                        description: The name of the  resource.
-                        type: string
-                      nics:
+                      labels:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          Map of string keys and values that can be used to organize and categorize
+                          (scope and select) objects. May match selectors of replication controllers
+                          and services.
+                          More info: http://kubernetes.io/docs/user-guide/labels
+                        type: object
+                    type: object
+                  spec:
+                    description: Spec is the IonosCloudMachineSpec for the IonosCloudMachineTemplate.
+                    properties:
+                      additionalNetworks:
+                        description: |-
+                          AdditionalNetworks defines the additional network configurations for the VM.
+                          NOTE(lubedacht): We currently only support networks with DHCP enabled.
                         items:
+                          description: Network contains the config for additional
+                            LANs.
                           properties:
-                            lanRef:
-                              properties:
-                                name:
-                                  type: string
-                              required:
-                              - name
-                              type: object
-                            primaryAddressFrom:
-                              description: PrimaryAddressFrom is an IPAddressPools
-                                that should be assigned to an IPAddressClaims.
+                            ipv4PoolRef:
+                              description: |-
+                                IPv4PoolRef is a reference to an IPAMConfig Pool resource, which exposes IPv4 addresses.
+                                The nic will use an available IP address from the referenced pool.
                               properties:
                                 apiGroup:
-                                  description: APIGroup is the group for the resource
-                                    being referenced. If APIGroup is not specified,
-                                    the specified Kind must be in the core API group.
+                                  description: |-
+                                    APIGroup is the group for the resource being referenced.
+                                    If APIGroup is not specified, the specified Kind must be in the core API group.
                                     For any other third-party types, APIGroup is required.
                                   type: string
                                 kind:
@@ -137,33 +104,245 @@ spec:
                               - name
                               type: object
                               x-kubernetes-map-type: atomic
-                            primaryIP:
-                              type: string
+                              x-kubernetes-validations:
+                              - message: ipv4PoolRef allows only IPAMConfig apiGroup
+                                  ipam.cluster.x-k8s.io
+                                rule: self.apiGroup == 'ipam.cluster.x-k8s.io'
+                              - message: ipv4PoolRef allows either InClusterIPPool
+                                  or GlobalInClusterIPPool
+                                rule: self.kind == 'InClusterIPPool' || self.kind
+                                  == 'GlobalInClusterIPPool'
+                              - message: ipv4PoolRef.name is required
+                                rule: self.name != ''
+                            ipv6PoolRef:
+                              description: |-
+                                IPv6PoolRef is a reference to an IPAMConfig pool resource, which exposes IPv6 addresses.
+                                The nic will use an available IP address from the referenced pool.
+                              properties:
+                                apiGroup:
+                                  description: |-
+                                    APIGroup is the group for the resource being referenced.
+                                    If APIGroup is not specified, the specified Kind must be in the core API group.
+                                    For any other third-party types, APIGroup is required.
+                                  type: string
+                                kind:
+                                  description: Kind is the type of resource being
+                                    referenced
+                                  type: string
+                                name:
+                                  description: Name is the name of resource being
+                                    referenced
+                                  type: string
+                              required:
+                              - kind
+                              - name
+                              type: object
+                              x-kubernetes-map-type: atomic
+                              x-kubernetes-validations:
+                              - message: ipv6PoolRef allows only IPAMConfig apiGroup
+                                  ipam.cluster.x-k8s.io
+                                rule: self.apiGroup == 'ipam.cluster.x-k8s.io'
+                              - message: ipv6PoolRef allows either InClusterIPPool
+                                  or GlobalInClusterIPPool
+                                rule: self.kind == 'InClusterIPPool' || self.kind
+                                  == 'GlobalInClusterIPPool'
+                              - message: ipv6PoolRef.name is required
+                                rule: self.name != ''
+                            networkID:
+                              description: |-
+                                NetworkID represents an ID an existing LAN in the data center.
+                                This LAN will be excluded from the deletion process.
+                              format: int32
+                              minimum: 1
+                              type: integer
                           required:
-                          - lanRef
+                          - networkID
                           type: object
                         type: array
-                      providerID:
+                        x-kubernetes-list-map-keys:
+                        - networkID
+                        x-kubernetes-list-type: map
+                      availabilityZone:
+                        default: AUTO
+                        description: AvailabilityZone is the availability zone in
+                          which the VM should be provisioned.
+                        enum:
+                        - AUTO
+                        - ZONE_1
+                        - ZONE_2
+                        type: string
+                      cpuFamily:
+                        description: |-
+                          CPUFamily defines the CPU architecture, which will be used for this VM.
+                          Not all CPU architectures are available in all data centers.
+
+
+                          If not specified, the cloud will select a suitable CPU family
+                          based on the availability in the data center.
+                        example: AMD_OPTERON
+                        type: string
+                      datacenterID:
+                        description: DatacenterID is the ID of the data center where
+                          the VM should be created in.
+                        format: uuid
                         type: string
                         x-kubernetes-validations:
-                        - message: ProviderID is immutable
+                        - message: datacenterID is immutable
                           rule: self == oldSelf
-                      ram:
-                        description: The memory size for the enterprise server in
-                          MB, such as 2048.
+                      disk:
+                        description: Disk defines the boot volume of the VM.
+                        properties:
+                          availabilityZone:
+                            default: AUTO
+                            description: AvailabilityZone is the availability zone
+                              where the volume will be created.
+                            enum:
+                            - AUTO
+                            - ZONE_1
+                            - ZONE_2
+                            - ZONE_3
+                            type: string
+                          diskType:
+                            default: HDD
+                            description: DiskType defines the type of the hard drive.
+                            enum:
+                            - HDD
+                            - SSD Standard
+                            - SSD Premium
+                            type: string
+                          image:
+                            description: Image is the image to use for the VM.
+                            properties:
+                              id:
+                                description: ID is the ID of the image to use for
+                                  the VM.
+                                minLength: 1
+                                type: string
+                            required:
+                            - id
+                            type: object
+                          name:
+                            description: Name is the name of the volume
+                            type: string
+                          sizeGB:
+                            default: 20
+                            description: SizeGB defines the size of the volume in
+                              GB
+                            minimum: 10
+                            type: integer
+                        required:
+                        - image
+                        type: object
+                      failoverIP:
+                        description: |-
+                          FailoverIP can be set to enable failover for VMs in the same MachineDeployment.
+                          It can be either set to an already reserved IPv4 address, or it can be set to "AUTO"
+                          which will automatically reserve an IPv4 address for the Failover Group.
+
+
+                          If the machine is a control plane machine, this field will not be taken into account.
+                        type: string
+                        x-kubernetes-validations:
+                        - message: failoverIP is immutable
+                          rule: self == oldSelf
+                        - message: failoverIP must be either 'AUTO' or a valid IPv4
+                            address
+                          rule: self == "AUTO" || self.matches("((25[0-5]|(2[0-4]|1\\d|[1-9]|)\\d)\\.?\\b){4}$")
+                      ipv4PoolRef:
+                        description: |-
+                          IPv4PoolRef is a reference to an IPAMConfig Pool resource, which exposes IPv4 addresses.
+                          The nic will use an available IP address from the referenced pool.
+                        properties:
+                          apiGroup:
+                            description: |-
+                              APIGroup is the group for the resource being referenced.
+                              If APIGroup is not specified, the specified Kind must be in the core API group.
+                              For any other third-party types, APIGroup is required.
+                            type: string
+                          kind:
+                            description: Kind is the type of resource being referenced
+                            type: string
+                          name:
+                            description: Name is the name of resource being referenced
+                            type: string
+                        required:
+                        - kind
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                        x-kubernetes-validations:
+                        - message: ipv4PoolRef allows only IPAMConfig apiGroup ipam.cluster.x-k8s.io
+                          rule: self.apiGroup == 'ipam.cluster.x-k8s.io'
+                        - message: ipv4PoolRef allows either InClusterIPPool or GlobalInClusterIPPool
+                          rule: self.kind == 'InClusterIPPool' || self.kind == 'GlobalInClusterIPPool'
+                        - message: ipv4PoolRef.name is required
+                          rule: self.name != ''
+                      ipv6PoolRef:
+                        description: |-
+                          IPv6PoolRef is a reference to an IPAMConfig pool resource, which exposes IPv6 addresses.
+                          The nic will use an available IP address from the referenced pool.
+                        properties:
+                          apiGroup:
+                            description: |-
+                              APIGroup is the group for the resource being referenced.
+                              If APIGroup is not specified, the specified Kind must be in the core API group.
+                              For any other third-party types, APIGroup is required.
+                            type: string
+                          kind:
+                            description: Kind is the type of resource being referenced
+                            type: string
+                          name:
+                            description: Name is the name of resource being referenced
+                            type: string
+                        required:
+                        - kind
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                        x-kubernetes-validations:
+                        - message: ipv6PoolRef allows only IPAMConfig apiGroup ipam.cluster.x-k8s.io
+                          rule: self.apiGroup == 'ipam.cluster.x-k8s.io'
+                        - message: ipv6PoolRef allows either InClusterIPPool or GlobalInClusterIPPool
+                          rule: self.kind == 'InClusterIPPool' || self.kind == 'GlobalInClusterIPPool'
+                        - message: ipv6PoolRef.name is required
+                          rule: self.name != ''
+                      memoryMB:
+                        default: 3072
+                        description: |-
+                          MemoryMB is the memory size for the VM in MB.
+                          Size must be specified in multiples of 256 MB with a minimum of 1024 MB
+                          which is required as we are using hot-pluggable RAM by default.
                         format: int32
-                        minimum: 256
-                        multipleOf: 256
+                        minimum: 2048
+                        multipleOf: 1024
                         type: integer
+                      numCores:
+                        default: 1
+                        description: NumCores defines the number of cores for the
+                          VM.
+                        format: int32
+                        minimum: 1
+                        type: integer
+                      providerID:
+                        description: |-
+                          ProviderID is the IONOS Cloud provider ID
+                          will be in the format ionos://ee090ff2-1eef-48ec-a246-a51a33aa4f3a
+                        type: string
+                      type:
+                        default: ENTERPRISE
+                        description: Type is the server type of the VM. Can be either
+                          ENTERPRISE or VCPU.
+                        enum:
+                        - ENTERPRISE
+                        - VCPU
+                        type: string
+                        x-kubernetes-validations:
+                        - message: type is immutable
+                          rule: self == oldSelf
                     required:
-                    - bootVolume
-                    - cores
-                    - cpuFamily
-                    - ram
+                    - datacenterID
+                    - disk
                     type: object
-                    x-kubernetes-validations:
-                    - message: ProviderID is required once set
-                      rule: '!has(oldSelf.providerID) || has(self.providerID)'
                 required:
                 - spec
                 type: object

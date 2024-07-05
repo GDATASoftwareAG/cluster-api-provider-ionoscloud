@@ -1,5 +1,5 @@
 /*
-Copyright 2023.
+Copyright 2024 IONOS Cloud.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,183 +17,116 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 )
 
 const (
-	// ClusterFinalizer allows ReconcileIONOSCloudCluster to clean up ionos cloud
-	// resources associated with IONOSCloudCluster before removing it from the
-	// API server.
-	ClusterFinalizer = "ionoscloudcluster.infrastructure.cluster.x-k8s.io/finalizer"
+	// ClusterFinalizer allows cleanup of resources, which are
+	// associated with the IonosCloudCluster before removing it from the API server.
+	ClusterFinalizer = "ionoscloudcluster.infrastructure.cluster.x-k8s.io"
 
-	// MachineFinalizer allows ReconcileIONOSCloudMachine to clean up ionos cloud
-	// resources associated with IONOSCloudMachine before removing it from the
-	// API server.
-	MachineFinalizer = "ionoscloudmachine.infrastructure.cluster.x-k8s.io/finalizer"
+	// IonosCloudClusterReady is the condition for the IonosCloudCluster, which indicates that the cluster is ready.
+	IonosCloudClusterReady clusterv1.ConditionType = "ClusterReady"
 
-	// IdentityFinalizer allows ReconcileIONOSCloudClusterIdentity to clean up ionos cloud
-	// resources associated with IONOSCloudClusterIdentity before removing it from the
-	// API server.
-	IdentityFinalizer = "ionoscloudclusteridentity.infrastructure.cluster.x-k8s.io/finalizer"
-
-	// LoadBalancerCreatedCondition documents the creation of the loadbalancer
-	LoadBalancerCreatedCondition clusterv1.ConditionType = "LoadBalancerCreated"
-
-	// LoadBalancerCreationFailedReason (Severity=Error) documents a controller detecting
-	// issues with the creation of the loadbalancer.
-	LoadBalancerCreationFailedReason = "LoadBalancerCreationFailed"
-
-	// DataCenterCreatedCondition documents the creation of the datacenter
-	DataCenterCreatedCondition clusterv1.ConditionType = "DataCenterCreated"
-
-	// DataCenterCreationFailedReason (Severity=Error) documents a controller detecting
-	// issues with the creation of the datacenter.
-	DataCenterCreationFailedReason = "DataCenterCreationFailed"
-
-	// LanCreatedCondition documents the creation of the Lan
-	LanCreatedCondition clusterv1.ConditionType = "LanCreated"
-
-	// LanCreationFailedReason (Severity=Error) documents a controller detecting
-	// issues with the creation of the Lan.
-	LanCreationFailedReason = "LanCreationFailed"
-
-	// LoadBalancerForwardingRuleCreatedCondition documents the creation of the ForwardingRule
-	LoadBalancerForwardingRuleCreatedCondition clusterv1.ConditionType = "LoadBalancerForwardingRuleCreated"
-
-	// LoadBalancerForwardingRuleCreationFailedReason (Severity=Error) documents a controller detecting
-	// issues with the creation of the ForwardingRule.
-	LoadBalancerForwardingRuleCreationFailedReason = "LoadBalancerForwardingRuleCreationFailed"
+	// IonosCloudClusterKind is the string resource kind of the IonosCloudCluster resource.
+	IonosCloudClusterKind = "IonosCloudCluster"
 )
 
-// +kubebuilder:validation:Enum=es/vlt;fr/par;de/txl;de/fra;gb-lhr;us-ewr;us-las;
-type Location string
+// IonosCloudClusterSpec defines the desired state of IonosCloudCluster.
+type IonosCloudClusterSpec struct {
+	// ControlPlaneEndpoint represents the endpoint used to communicate with the control plane.
+	//+kubebuilder:validation:XValidation:rule="self.host == oldSelf.host || oldSelf.host == ''",message="control plane endpoint host cannot be updated"
+	//+kubebuilder:validation:XValidation:rule="self.port == oldSelf.port || oldSelf.port == 0",message="control plane endpoint port cannot be updated"
+	//
+	// TODO(gfariasalves): as of now, IP must be provided by the user as we still don't insert the
+	// provider-provided block IP into the kube-vip manifest.
+	ControlPlaneEndpoint clusterv1.APIEndpoint `json:"controlPlaneEndpoint,omitempty"`
 
-func (r Location) String() string {
-	return string(r)
+	// Location is the location where the data centers should be located.
+	//+kubebuilder:validation:XValidation:rule="self == oldSelf",message="location is immutable"
+	//+kubebuilder:example=de/txl
+	//+kubebuilder:validation:MinLength=1
+	Location string `json:"location"`
+
+	// CredentialsRef is a reference to the secret containing the credentials to access the IONOS Cloud API.
+	//+kubebuilder:validation:XValidation:rule="has(self.name) && self.name != ''",message="credentialsRef.name must be provided"
+	CredentialsRef corev1.LocalObjectReference `json:"credentialsRef"`
 }
 
-// IONOSCloudClusterSpec defines the desired state of IONOSCloudCluster
-// +kubebuilder:validation:XValidation:rule="!has(oldSelf.dataCenterID) || has(self.dataCenterID)", message="DataCenterID is required once set"
-type IONOSCloudClusterSpec struct {
-
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Location is immutable"
-	Location Location `json:"location"`
-
-	// +kubebuilder:validation:MinLength=1
-	IdentityName string `json:"identityName"`
-	// +optional
-	ControlPlaneEndpoint clusterv1.APIEndpoint `json:"controlPlaneEndpoint"`
-	// +listType=map
-	// +listMapKey=name
-	Lans         []IONOSLanSpec        `json:"lans"`
-	LoadBalancer IONOSLoadBalancerSpec `json:"loadBalancer"`
-
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="DataCenterID is immutable"
-	DataCenterID string `json:"dataCenterID,omitempty"`
-}
-
-// IONOSCloudClusterStatus defines the observed state of IONOSCloudCluster
-type IONOSCloudClusterStatus struct {
-	// Ready is true when the provider resource is ready.
-	// +optional
+// IonosCloudClusterStatus defines the observed state of IonosCloudCluster.
+type IonosCloudClusterStatus struct {
+	// Ready indicates that the cluster is ready.
+	//+optional
 	Ready bool `json:"ready,omitempty"`
-	// Conditions defines current service state of the IONOSCloudCluster.
-	// +optional
+
+	// Conditions defines current service state of the IonosCloudCluster.
+	//+optional
 	Conditions clusterv1.Conditions `json:"conditions,omitempty"`
+
+	// CurrentRequestByDatacenter maps data center IDs to a pending provisioning request made during reconciliation.
+	//+optional
+	CurrentRequestByDatacenter map[string]ProvisioningRequest `json:"currentRequest,omitempty"`
+
+	// CurrentClusterRequest is the current pending request made during reconciliation for the whole cluster.
+	//+optional
+	CurrentClusterRequest *ProvisioningRequest `json:"currentClusterRequest,omitempty"`
+
+	// ControlPlaneEndpointIPBlockID is the IONOS Cloud UUID for the control plane endpoint IP block.
+	//+optional
+	ControlPlaneEndpointIPBlockID string `json:"controlPlaneEndpointIPBlockID,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:printcolumn:name="Location",type=string,JSONPath=`.spec.location`
-//+kubebuilder:printcolumn:name="DataCenterID",type=string,JSONPath=`.spec.dataCenterID`
+//+kubebuilder:resource:path=ionoscloudclusters,scope=Namespaced,categories=cluster-api;ionoscloud,shortName=icc
+//+kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".metadata.labels['cluster\\.x-k8s\\.io/cluster-name']",description="Cluster"
+//+kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.ready",description="Cluster infrastructure is ready"
+//+kubebuilder:printcolumn:name="Endpoint",type="string",JSONPath=".spec.controlPlaneEndpoint",description="API Endpoint"
 
-// IONOSCloudCluster is the Schema for the ionoscloudclusters API
-type IONOSCloudCluster struct {
+// IonosCloudCluster is the Schema for the ionoscloudclusters API.
+type IonosCloudCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   IONOSCloudClusterSpec   `json:"spec,omitempty"`
-	Status IONOSCloudClusterStatus `json:"status,omitempty"`
+	Spec   IonosCloudClusterSpec   `json:"spec,omitempty"`
+	Status IonosCloudClusterStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// IONOSCloudClusterList contains a list of IONOSCloudCluster
-type IONOSCloudClusterList struct {
+// IonosCloudClusterList contains a list of IonosCloudCluster.
+type IonosCloudClusterList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []IONOSCloudCluster `json:"items"`
-}
-
-func (c *IONOSCloudCluster) GetConditions() clusterv1.Conditions {
-	return c.Status.Conditions
-}
-
-func (c *IONOSCloudCluster) SetConditions(conditions clusterv1.Conditions) {
-	c.Status.Conditions = conditions
+	Items           []IonosCloudCluster `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&IONOSCloudCluster{}, &IONOSCloudClusterList{})
+	objectTypes = append(objectTypes, &IonosCloudCluster{}, &IonosCloudClusterList{})
 }
 
-type IONOSLanSpec struct {
-	LanID  *int32 `json:"lanID,omitempty"` //validate?
-	Name   string `json:"name"`            //validate?
-	Public bool   `json:"public"`
-	// +listType=map
-	// +listMapKey=id
-	FailoverGroups []IONOSFailoverGroup `json:"failoverGroups,omitempty"`
-	//NameTemplate string   `json:"nameTemplate"`
+// GetConditions returns the conditions from the status.
+func (i *IonosCloudCluster) GetConditions() clusterv1.Conditions {
+	return i.Status.Conditions
 }
 
-type IONOSFailoverGroup struct {
-	ID string `json:"id"`
-	//	NicUuid string `json:"nicUuid,omitempty"`
+// SetConditions sets the conditions in the status.
+func (i *IonosCloudCluster) SetConditions(conditions clusterv1.Conditions) {
+	i.Status.Conditions = conditions
 }
 
-type IONOSLoadBalancerSpec struct {
-	ID             string          `json:"id,omitempty"`
-	ListenerLanRef IONOSLanRefSpec `json:"listenerLanRef"`
-	TargetLanRef   IONOSLanRefSpec `json:"targetLanRef"`
-}
-
-func (c *IONOSCloudCluster) Lan(name string) *IONOSLanSpec {
-	for i := range c.Spec.Lans {
-		if c.Spec.Lans[i].Name == name {
-			return &c.Spec.Lans[i]
-		}
+// SetCurrentClusterRequest sets the current provisioning request for the cluster.
+func (i *IonosCloudCluster) SetCurrentClusterRequest(method, status, requestPath string) {
+	i.Status.CurrentClusterRequest = &ProvisioningRequest{
+		Method:      method,
+		RequestPath: requestPath,
+		State:       status,
 	}
-	return nil
 }
 
-func (c *IONOSCloudCluster) LanBy(id *int32) *IONOSLanSpec {
-	if id == nil || *id == 0 {
-		return nil
-	}
-	for i := range c.Spec.Lans {
-		lan := &c.Spec.Lans[i]
-		if lan.LanID == nil {
-			continue
-		}
-		if *lan.LanID == *id {
-			return &c.Spec.Lans[i]
-		}
-	}
-	return nil
-}
-
-func (c *IONOSCloudCluster) EnsureLan(spec IONOSLanSpec) {
-	if spec.Name == "" {
-		return
-	}
-	for i := range c.Spec.Lans {
-		if c.Spec.Lans[i].Name == spec.Name {
-			c.Spec.Lans[i].LanID = spec.LanID
-			c.Spec.Lans[i].Public = spec.Public
-			return
-		}
-	}
-	c.Spec.Lans = append(c.Spec.Lans, spec)
+// DeleteCurrentClusterRequest deletes the current provisioning request for the cluster.
+func (i *IonosCloudCluster) DeleteCurrentClusterRequest() {
+	i.Status.CurrentClusterRequest = nil
 }

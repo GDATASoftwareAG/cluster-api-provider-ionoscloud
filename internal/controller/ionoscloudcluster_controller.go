@@ -1,5 +1,5 @@
 /*
-Copyright 2023.
+Copyright 2024 IONOS Cloud.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,339 +14,248 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package controller contains the main reconciliation logic for this application.
+// the controllers make sure to perform actions according to the state of the resource,
+// which is being watched.
 package controller
 
 import (
-	goctx "context"
+	"context"
+	"errors"
 	"fmt"
-	"github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/api/v1alpha1"
-	"github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/internal/context"
-	"github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/internal/utils"
-	ionoscloud "github.com/ionos-cloud/sdk-go/v6"
-	"github.com/pkg/errors"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	kerrors "k8s.io/apimachinery/pkg/util/errors"
-	"net/http"
+	"k8s.io/apimachinery/pkg/runtime"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
-	clusterutilv1 "sigs.k8s.io/cluster-api/util"
+	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/annotations"
 	"sigs.k8s.io/cluster-api/util/conditions"
-	"sigs.k8s.io/cluster-api/util/patch"
 	"sigs.k8s.io/cluster-api/util/predicates"
 	ctrl "sigs.k8s.io/controller-runtime"
-	ctrlutil "sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"time"
+
+	infrav1 "github.com/ionos-cloud/cluster-api-provider-ionoscloud/api/v1alpha1"
+	"github.com/ionos-cloud/cluster-api-provider-ionoscloud/internal/service/cloud"
+	"github.com/ionos-cloud/cluster-api-provider-ionoscloud/internal/util/locker"
+	"github.com/ionos-cloud/cluster-api-provider-ionoscloud/scope"
 )
 
-const STATE_BUSY = "BUSY"
-const STATE_AVAILABLE = "AVAILABLE"
+// IonosCloudClusterReconciler reconciles a IonosCloudCluster object.
+type IonosCloudClusterReconciler struct {
+	client.Client
+	scheme *runtime.Scheme
+	locker *locker.Locker
+}
 
-var defaultRetryIntervalOnBusy = time.Minute
-
-// IONOSCloudClusterReconciler reconciles a IONOSCloudCluster object
-type IONOSCloudClusterReconciler struct {
-	*context.ControllerContext
+// NewIonosCloudClusterReconciler creates a new IonosCloudClusterReconciler.
+func NewIonosCloudClusterReconciler(mgr ctrl.Manager) *IonosCloudClusterReconciler {
+	r := &IonosCloudClusterReconciler{
+		Client: mgr.GetClient(),
+		scheme: mgr.GetScheme(),
+		locker: locker.New(),
+	}
+	return r
 }
 
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=ionoscloudclusters,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=ionoscloudclusters/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=ionoscloudclusters/finalizers,verbs=update
 
-// Reconcile ensures the back-end state reflects the Kubernetes resource state intent.
-func (r *IONOSCloudClusterReconciler) Reconcile(ctx goctx.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
-	logger := r.Logger.WithName(req.Namespace).WithName(req.Name)
-	logger.Info("Starting Reconcile ionoscloudCluster")
+//+kubebuilder:rbac:groups=cluster.x-k8s.io,resources=clusters;clusters/status,verbs=get;list;watch
 
-	// Fetch the ionosCloudCluster instance
-	ionoscloudCluster := &v1alpha1.IONOSCloudCluster{}
-	err := r.K8sClient.Get(ctx, req.NamespacedName, ionoscloudCluster)
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;update
+
+// Reconcile is part of the main kubernetes reconciliation loop which aims to
+// move the current state of the cluster closer to the desired state.
+//
+// For more details, check Reconcile and its Result here:
+// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.16.0/pkg/reconcile
+func (r *IonosCloudClusterReconciler) Reconcile(
+	ctx context.Context,
+	ionosCloudCluster *infrav1.IonosCloudCluster,
+) (_ ctrl.Result, retErr error) {
+	logger := ctrl.LoggerFrom(ctx)
+
+	cluster, err := util.GetOwnerCluster(ctx, r.Client, ionosCloudCluster.ObjectMeta)
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			logger.Info("IONOSCloudCluster not found, won't reconcile")
-			return reconcile.Result{}, nil
-		}
-		return reconcile.Result{}, err
+		return ctrl.Result{}, err
 	}
 
-	// Fetch the Cluster.
-	cluster, err := clusterutilv1.GetOwnerCluster(ctx, r.K8sClient, ionoscloudCluster.ObjectMeta)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
 	if cluster == nil {
-		logger.Info("Waiting for Cluster Controller to set OwnerRef on IONOSCloudCluster")
-		return reconcile.Result{}, nil
+		logger.Info("Waiting for cluster controller to set OwnerRef on IonosCloudCluster")
+		return ctrl.Result{RequeueAfter: defaultReconcileDuration}, nil
 	}
 
-	if annotations.IsPaused(cluster, ionoscloudCluster) {
-		logger.Info("IONOSCloudCluster is owned by a cluster that is paused. won't reconcile")
-		return reconcile.Result{}, nil
+	if annotations.IsPaused(cluster, ionosCloudCluster) {
+		logger.Info("Either IonosCloudCluster or owner cluster is marked as paused. Reconciliation is skipped")
+		return ctrl.Result{}, nil
 	}
 
-	// Build the patch helper.
-	patchHelper, err := patch.NewHelper(ionoscloudCluster, r.K8sClient)
+	clusterScope, err := scope.NewCluster(scope.ClusterParams{
+		Client:       r.Client,
+		Cluster:      cluster,
+		IonosCluster: ionosCloudCluster,
+		Locker:       r.locker,
+	})
 	if err != nil {
-		return reconcile.Result{}, errors.Wrap(err, "failed to initialize patch helper")
+		return ctrl.Result{}, fmt.Errorf("unable to create scope %w", err)
 	}
 
-	user, password, token, host, err := utils.GetLoginDataForCluster(ctx, r.ControllerContext.K8sClient, ionoscloudCluster)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Create the cluster context for this request.
-	clusterContext := &context.ClusterContext{
-		ControllerContext: r.ControllerContext,
-		Cluster:           cluster,
-		IONOSCloudCluster: ionoscloudCluster,
-		Logger:            logger,
-		PatchHelper:       patchHelper,
-		IONOSClient:       r.IONOSClientFactory.GetClient(user, password, token, host),
-	}
-
-	// Always issue a patch when exiting this function so changes to the
-	// resource are patched back to the API server.
+	// Make sure to persist the changes to the cluster before exiting the function.
 	defer func() {
-		if err := clusterContext.Patch(); err != nil {
-			if reterr == nil {
-				reterr = err
-			}
-			clusterContext.Logger.Error(err, "patch failed", "cluster", clusterContext.String())
+		if err := clusterScope.Finalize(); err != nil {
+			retErr = errors.Join(err, retErr)
 		}
 	}()
 
-	if err := setOwnerRefsOnIONOSCloudMachines(clusterContext); err != nil {
-		return reconcile.Result{}, errors.Wrapf(err, "failed to set owner refs on IONOSCloudMachine objects")
-	}
-
-	// Handle deleted clusters
-	if !ionoscloudCluster.DeletionTimestamp.IsZero() {
-		return r.reconcileDelete(clusterContext)
-	}
-
-	// Handle non-deleted clusters
-	return r.reconcileNormal(clusterContext)
-}
-
-func (r *IONOSCloudClusterReconciler) reconcileDelete(ctx *context.ClusterContext) (reconcile.Result, error) {
-	ctx.Logger.Info("Deleting IONOSCloudCluster")
-	if ctx.IONOSCloudCluster.Spec.DataCenterID != "" {
-		resp, err := ctx.IONOSClient.DeleteDatacenter(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID)
-		if err != nil && resp.StatusCode != http.StatusNotFound {
-			return reconcile.Result{}, err
+	cloudService, err := createServiceFromCluster(ctx, r.Client, ionosCloudCluster, logger)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			logger.Error(err, "unable to create IONOS Cloud client")
+			// Secret is missing, we try again after some time.
+			return ctrl.Result{RequeueAfter: defaultReconcileDuration}, nil
 		}
-
-		conditions.MarkFalse(ctx.IONOSCloudCluster, v1alpha1.DataCenterCreatedCondition, "DataCenterDeleted", clusterv1.ConditionSeverityInfo, "")
-		ctrlutil.RemoveFinalizer(ctx.IONOSCloudCluster, v1alpha1.ClusterFinalizer)
+		return ctrl.Result{}, fmt.Errorf("failed to create ionos client: %w", err)
 	}
 
-	return reconcile.Result{}, nil
+	if !ionosCloudCluster.DeletionTimestamp.IsZero() {
+		return r.reconcileDelete(ctx, clusterScope, cloudService)
+	}
+
+	return r.reconcileNormal(ctx, clusterScope, cloudService)
 }
 
-func (r *IONOSCloudClusterReconciler) reconcileNormal(ctx *context.ClusterContext) (reconcile.Result, error) {
-	ctx.Logger.Info("Reconciling IONOSCloudCluster")
+func (r *IonosCloudClusterReconciler) reconcileNormal(
+	ctx context.Context,
+	clusterScope *scope.Cluster,
+	cloudService *cloud.Service,
+) (ctrl.Result, error) {
+	log := ctrl.LoggerFrom(ctx)
 
-	// If the IONOSCloudCluster doesn't have our finalizer, add it.
-	ctrlutil.AddFinalizer(ctx.IONOSCloudCluster, v1alpha1.ClusterFinalizer)
+	controllerutil.AddFinalizer(clusterScope.IonosCluster, infrav1.ClusterFinalizer)
+	log.V(4).Info("Reconciling IonosCloudCluster")
 
-	if result, err := r.reconcileDataCenter(ctx); err != nil {
-		conditions.MarkFalse(ctx.IONOSCloudCluster, v1alpha1.DataCenterCreatedCondition, v1alpha1.DataCenterCreationFailedReason, clusterv1.ConditionSeverityError, err.Error())
-		return *result, err
+	requeue, err := r.checkRequestStatus(ctx, clusterScope, cloudService)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("error when trying to determine in-flight request states: %w", err)
+	}
+	if requeue {
+		log.Info("Request is still in progress")
+		return ctrl.Result{RequeueAfter: defaultReconcileDuration}, nil
 	}
 
-	if result, err := r.reconcileLan(ctx); err != nil {
-		conditions.MarkFalse(ctx.IONOSCloudCluster, v1alpha1.LanCreatedCondition, v1alpha1.LanCreationFailedReason, clusterv1.ConditionSeverityError, err.Error())
-		return *result, err
+	reconcileSequence := []serviceReconcileStep[scope.Cluster]{
+		{"ReconcileControlPlaneEndpoint", cloudService.ReconcileControlPlaneEndpoint},
 	}
-
-	if result, err := r.reconcileLoadBalancer(ctx); err != nil {
-		conditions.MarkFalse(ctx.IONOSCloudCluster, v1alpha1.LoadBalancerCreatedCondition, v1alpha1.LoadBalancerCreationFailedReason, clusterv1.ConditionSeverityError, err.Error())
-		return *result, err
-	}
-
-	ctx.IONOSCloudCluster.Status.Ready = true
-
-	return reconcile.Result{}, nil
-}
-
-func (r *IONOSCloudClusterReconciler) reconcileDataCenter(ctx *context.ClusterContext) (*reconcile.Result, error) {
-	ctx.Logger.Info("Reconciling DataCenter")
-	if ctx.IONOSCloudCluster.Spec.DataCenterID == "" {
-		datacenterName := fmt.Sprintf("cluster-%s", ctx.Cluster.Name)
-		datacenter, _, err := ctx.IONOSClient.CreateDatacenter(ctx, datacenterName, ctx.IONOSCloudCluster.Spec.Location)
-
-		if err != nil {
-			return &reconcile.Result{}, errors.Wrapf(err, "error creating datacenter %v", datacenter)
-		}
-
-		ctx.IONOSCloudCluster.Spec.DataCenterID = *datacenter.Id
-	}
-
-	// check status
-	_, resp, err := ctx.IONOSClient.GetDatacenter(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID)
-	if err != nil && resp != nil && resp.StatusCode != http.StatusNotFound {
-		return &reconcile.Result{}, errors.Wrap(err, "error getting datacenter")
-	}
-
-	if resp.StatusCode == http.StatusNotFound {
-		return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, errors.New("datacenter not available (yet)")
-	}
-
-	conditions.MarkTrue(ctx.IONOSCloudCluster, v1alpha1.DataCenterCreatedCondition)
-
-	return nil, nil
-}
-
-func (r *IONOSCloudClusterReconciler) reconcileLan(ctx *context.ClusterContext) (*reconcile.Result, error) {
-	for i := range ctx.IONOSCloudCluster.Spec.Lans {
-		lanSpec := &ctx.IONOSCloudCluster.Spec.Lans[i]
-		ctx.Logger.Info(fmt.Sprintf("Reconciling %s Lan", lanSpec.Name))
-		if lanSpec.LanID == nil {
-			lanID, err := createLan(ctx, lanSpec.Public)
+	for _, step := range reconcileSequence {
+		if requeue, err := step.fn(ctx, clusterScope); err != nil || requeue {
 			if err != nil {
-				return &reconcile.Result{}, err
+				err = fmt.Errorf("error in step %s: %w", step.name, err)
 			}
-			lanSpec.LanID = lanID
-		}
 
-		// check status
-		lanId := fmt.Sprint(*lanSpec.LanID)
-		lan, resp, err := ctx.IONOSClient.GetLan(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, lanId)
-
-		if err != nil && resp.StatusCode != http.StatusNotFound {
-			return &reconcile.Result{}, errors.Wrap(err, fmt.Sprintf("error getting %s Lan", lanSpec.Name))
-		}
-
-		if resp.StatusCode == http.StatusNotFound || *lan.Metadata.State == STATE_BUSY {
-			return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, errors.New(fmt.Sprintf("%s Lan not available (yet)", lanSpec.Name))
+			return ctrl.Result{RequeueAfter: defaultReconcileDuration}, err
 		}
 	}
 
-	conditions.MarkTrue(ctx.IONOSCloudCluster, v1alpha1.LanCreatedCondition)
-	return nil, nil
+	conditions.MarkTrue(clusterScope.IonosCluster, infrav1.IonosCloudClusterReady)
+	clusterScope.IonosCluster.Status.Ready = true
+	return ctrl.Result{}, nil
 }
 
-func (r *IONOSCloudClusterReconciler) reconcileLoadBalancer(ctx *context.ClusterContext) (*reconcile.Result, error) {
-	ctx.Logger.Info("Reconciling LoadBalancer")
-	lbSpec := &ctx.IONOSCloudCluster.Spec.LoadBalancer
-	listenerLan := ctx.IONOSCloudCluster.Lan(lbSpec.ListenerLanRef.Name)
-	targetLan := ctx.IONOSCloudCluster.Lan(lbSpec.TargetLanRef.Name)
-
-	if listenerLan == nil {
-		return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, errors.New(fmt.Sprintf("listener lb %s Lan not available (yet)", lbSpec.ListenerLanRef.Name))
-	}
-	if targetLan == nil {
-		return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, errors.New(fmt.Sprintf("target lb %s Lan not available (yet)", lbSpec.TargetLanRef.Name))
+func (r *IonosCloudClusterReconciler) reconcileDelete(
+	ctx context.Context, clusterScope *scope.Cluster, cloudService *cloud.Service,
+) (ctrl.Result, error) {
+	log := ctrl.LoggerFrom(ctx)
+	if clusterScope.Cluster.DeletionTimestamp.IsZero() {
+		log.Error(errors.New("deletion was requested but owning cluster wasn't deleted"),
+			"unable to delete IonosCloudCluster")
+		// No need to reconcile again until the owning cluster was deleted.
+		return ctrl.Result{}, nil
 	}
 
-	if lbSpec.ID == "" {
-		loadBalancerName := fmt.Sprintf("lb-%s", ctx.Cluster.Name)
-		loadBalancer := ionoscloud.NetworkLoadBalancer{
-			Entities: &ionoscloud.NetworkLoadBalancerEntities{
-				Forwardingrules: &ionoscloud.NetworkLoadBalancerForwardingRules{
-					Items: &[]ionoscloud.NetworkLoadBalancerForwardingRule{
-						{
-							Properties: &ionoscloud.NetworkLoadBalancerForwardingRuleProperties{
-								ListenerIp:   ionoscloud.ToPtr(ctx.IONOSCloudCluster.Spec.ControlPlaneEndpoint.Host),
-								ListenerPort: ionoscloud.PtrInt32(6443),
-								Algorithm:    ionoscloud.ToPtr("ROUND_ROBIN"),
-								Name:         ionoscloud.ToPtr(ctx.IONOSCloudCluster.Name),
-								Protocol:     ionoscloud.ToPtr("TCP"),
-							},
-						},
-					},
+	requeue, err := r.checkRequestStatus(ctx, clusterScope, cloudService)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("error when trying to determine in-flight request states: %w", err)
+	}
+	if requeue {
+		log.Info("Request is still in progress")
+		return ctrl.Result{RequeueAfter: defaultReconcileDuration}, nil
+	}
+
+	machines, err := clusterScope.ListMachines(ctx, nil)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if len(machines) > 0 {
+		log.Info("Waiting for all IonosCloudMachines to be deleted", "remaining", len(machines))
+		return ctrl.Result{RequeueAfter: defaultReconcileDuration}, nil
+	}
+
+	reconcileSequence := []serviceReconcileStep[scope.Cluster]{
+		{"ReconcileControlPlaneEndpointDeletion", cloudService.ReconcileControlPlaneEndpointDeletion},
+	}
+	for _, step := range reconcileSequence {
+		if requeue, err := step.fn(ctx, clusterScope); err != nil || requeue {
+			if err != nil {
+				err = fmt.Errorf("error in step %s: %w", step.name, err)
+			}
+
+			return ctrl.Result{RequeueAfter: defaultReconcileDuration}, err
+		}
+	}
+	if err := removeCredentialsFinalizer(ctx, r.Client, clusterScope.IonosCluster); err != nil {
+		return ctrl.Result{}, err
+	}
+	controllerutil.RemoveFinalizer(clusterScope.IonosCluster, infrav1.ClusterFinalizer)
+	return ctrl.Result{}, nil
+}
+
+func (*IonosCloudClusterReconciler) checkRequestStatus(
+	ctx context.Context, clusterScope *scope.Cluster, cloudService *cloud.Service,
+) (requeue bool, retErr error) {
+	log := ctrl.LoggerFrom(ctx)
+	ionosCluster := clusterScope.IonosCluster
+	if req := ionosCluster.Status.CurrentClusterRequest; req != nil {
+		status, message, err := cloudService.GetRequestStatus(ctx, req.RequestPath)
+		if err != nil {
+			retErr = fmt.Errorf("could not get request status: %w", err)
+		} else {
+			requeue, retErr = withStatus(status, message, &log,
+				func() error {
+					ionosCluster.DeleteCurrentClusterRequest()
+					return nil
 				},
-			},
-			Properties: &ionoscloud.NetworkLoadBalancerProperties{
-				ListenerLan: listenerLan.LanID,
-				Name:        &loadBalancerName,
-				TargetLan:   targetLan.LanID,
-				Ips:         &[]string{ctx.IONOSCloudCluster.Spec.ControlPlaneEndpoint.Host},
-			},
-		}
-		loadBalancer, _, err := ctx.IONOSClient.CreateLoadBalancer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, loadBalancer)
-		if err != nil {
-			return &reconcile.Result{}, err
-		}
-		lbSpec.ID = *loadBalancer.Id
-	}
-
-	// check status
-	loadBalancer, resp, err := ctx.IONOSClient.GetLoadBalancer(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, lbSpec.ID)
-	if err != nil && resp.StatusCode != http.StatusNotFound {
-		return &reconcile.Result{}, errors.Wrap(err, "error getting loadbalancer")
-	}
-
-	if resp.StatusCode == http.StatusNotFound || *loadBalancer.Metadata.State == STATE_BUSY {
-		return &reconcile.Result{RequeueAfter: defaultRetryIntervalOnBusy}, errors.New("loadbalancer not available (yet)")
-	}
-
-	conditions.MarkTrue(ctx.IONOSCloudCluster, v1alpha1.LoadBalancerCreatedCondition)
-
-	return nil, nil
-}
-
-func createLan(ctx *context.ClusterContext, public bool) (*int32, error) {
-	lan, _, err := ctx.IONOSClient.CreateLan(ctx, ctx.IONOSCloudCluster.Spec.DataCenterID, public)
-	if err != nil {
-		return nil, err
-	}
-
-	if id, err := utils.ToInt32(*lan.Id); err != nil {
-		return nil, err
-	} else {
-		return &id, nil
-	}
-}
-
-func setOwnerRefsOnIONOSCloudMachines(ctx *context.ClusterContext) error {
-	ionoscloudMachines, err := utils.GetIONOSCloudMachinesInCluster(ctx, ctx.K8sClient, ctx.Cluster.Namespace, ctx.Cluster.Name)
-	if err != nil {
-		return errors.Wrapf(err,
-			"unable to list IONOSCloudMachines part of IONOSCloudCluster %s/%s", ctx.IONOSCloudCluster.Namespace, ctx.IONOSCloudCluster.Name)
-	}
-
-	var patchErrors []error
-	for _, ionoscloudMachine := range ionoscloudMachines {
-		patchHelper, err := patch.NewHelper(ionoscloudMachine, ctx.K8sClient)
-		if err != nil {
-			patchErrors = append(patchErrors, err)
-			continue
-		}
-
-		ionoscloudMachine.SetOwnerReferences(clusterutilv1.EnsureOwnerRef(
-			ionoscloudMachine.OwnerReferences,
-			metav1.OwnerReference{
-				APIVersion: ctx.IONOSCloudCluster.APIVersion,
-				Kind:       ctx.IONOSCloudCluster.Kind,
-				Name:       ctx.IONOSCloudCluster.Name,
-				UID:        ctx.IONOSCloudCluster.UID,
-			}))
-
-		if err := patchHelper.Patch(ctx, ionoscloudMachine); err != nil {
-			patchErrors = append(patchErrors, err)
+			)
 		}
 	}
-	return kerrors.NewAggregate(patchErrors)
+	return requeue, retErr
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *IONOSCloudClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *IonosCloudClusterReconciler) SetupWithManager(
+	ctx context.Context,
+	mgr ctrl.Manager,
+	options controller.Options,
+) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1.IONOSCloudCluster{}).
-		// Watch the CAPI resource that owns this infrastructure resource.
-		Watches(
-			&clusterv1.Cluster{},
-			handler.EnqueueRequestsFromMapFunc(clusterutilv1.ClusterToInfrastructureMapFunc(
-				r.Context,
-				schema.GroupVersionKind{},
-				mgr.GetClient(), &v1alpha1.IONOSCloudCluster{},
-			)),
+		WithOptions(options).
+		For(&infrav1.IonosCloudCluster{}).
+		WithEventFilter(predicates.ResourceNotPaused(ctrl.LoggerFrom(ctx))).
+		Watches(&clusterv1.Cluster{},
+			handler.EnqueueRequestsFromMapFunc(
+				util.ClusterToInfrastructureMapFunc(
+					ctx,
+					infrav1.GroupVersion.WithKind(infrav1.IonosCloudClusterKind),
+					r.Client, &infrav1.IonosCloudCluster{},
+				),
+			),
+			builder.WithPredicates(predicates.ClusterUnpaused(ctrl.LoggerFrom(ctx))),
 		).
-		WithEventFilter(predicates.ResourceIsNotExternallyManaged(r.Logger)).
-		Complete(r)
+		Complete(reconcile.AsReconciler[*infrav1.IonosCloudCluster](r.Client, r))
 }

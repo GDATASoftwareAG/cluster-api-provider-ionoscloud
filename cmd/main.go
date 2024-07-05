@@ -1,5 +1,5 @@
 /*
-Copyright 2023.
+Copyright 2024 IONOS Cloud.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,82 +14,66 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package main performs initialization and starts the manager
+// which will continuously reconcile on application defined resources.
 package main
 
 import (
-	goctx "context"
 	"flag"
-	"github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/internal/context"
-	"github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/internal/ionos"
 	"os"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	// to ensure that exec-entrypoint and run can make use of them.
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-
+	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-
+	"k8s.io/klog/v2"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	ipamv1 "sigs.k8s.io/cluster-api/exp/ipam/api/v1beta1"
+	"sigs.k8s.io/cluster-api/util/flags"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
 
-	infrastructurev1alpha1 "github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/api/v1alpha1"
-	"github.com/GDATASoftwareAG/cluster-api-provider-ionoscloud/internal/controller"
-	//+kubebuilder:scaffold:imports
+	infrav1 "github.com/ionos-cloud/cluster-api-provider-ionoscloud/api/v1alpha1"
+	iccontroller "github.com/ionos-cloud/cluster-api-provider-ionoscloud/internal/controller"
 )
 
 var (
-	scheme   = runtime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
+	scheme               = runtime.NewScheme()
+	setupLog             = ctrl.Log.WithName("setup")
+	healthProbeAddr      string
+	enableLeaderElection bool
+	diagnosticOptions    = flags.DiagnosticsOptions{}
+
+	icClusterConcurrency int
+	icMachineConcurrency int
 )
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+
 	utilruntime.Must(clusterv1.AddToScheme(scheme))
-	utilruntime.Must(infrastructurev1alpha1.AddToScheme(scheme))
+	utilruntime.Must(infrav1.AddToScheme(scheme))
 	utilruntime.Must(ipamv1.AddToScheme(scheme))
+
 	//+kubebuilder:scaffold:scheme
 }
 
-func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
-	var probeAddr string
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
-	opts := zap.Options{
-		Development: true,
-	}
-	opts.BindFlags(flag.CommandLine)
-	flag.Parse()
+// Add RBAC for the authorized diagnostics endpoint.
+// +kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews,verbs=create
+// +kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
 
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+func main() {
+	ctrl.SetLogger(klog.Background())
+	initFlags()
+	pflag.Parse()
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme: scheme,
-		/* if we retrieve IONOSCloudMachine from the cache we occasionally get outdated data,
-		which leads to the creation of multiple servers for a single IONOSCloudMachine,
-		because we check ProviderID to decide if we need to create a new server*/
-		Client: client.Options{
-			Cache: &client.CacheOptions{
-				DisableFor: []client.Object{
-					&infrastructurev1alpha1.IONOSCloudMachine{},
-				},
-			},
-		},
-		Metrics:                metricsserver.Options{BindAddress: metricsAddr},
-		HealthProbeBindAddress: probeAddr,
+		Scheme:                 scheme,
+		Metrics:                flags.GetDiagnosticsOptions(diagnosticOptions),
+		HealthProbeBindAddress: healthProbeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "2606507e.cluster.x-k8s.io",
+		LeaderElectionID:       "15f3d3ca.cluster.x-k8s.io",
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
@@ -103,45 +87,25 @@ func main() {
 		// LeaderElectionReleaseOnCancel: true,
 	})
 	if err != nil {
-		setupLog.Error(err, "unable to start manager")
+		setupLog.Error(err, "unable to create manager")
 		os.Exit(1)
 	}
 
-	if err = (&controller.IONOSCloudClusterReconciler{
-		ControllerContext: &context.ControllerContext{
-			Context:            goctx.Background(),
-			K8sClient:          mgr.GetClient(),
-			Scheme:             mgr.GetScheme(),
-			Logger:             ctrl.Log.WithName("IONOSCloudClusterReconciler"),
-			IONOSClientFactory: ionos.NewClientFactory(ionos.NewAPIClient),
-		},
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "IONOSCloudCluster")
-		os.Exit(1)
-	}
-	if err = (&controller.IONOSCloudMachineReconciler{
-		ControllerContext: &context.ControllerContext{
-			Context:            goctx.Background(),
-			K8sClient:          mgr.GetClient(),
-			Scheme:             mgr.GetScheme(),
-			Logger:             ctrl.Log.WithName("IONOSCloudMachineReconciler"),
-			IONOSClientFactory: ionos.NewClientFactory(ionos.NewAPIClient),
-		},
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "IONOSCloudMachine")
-		os.Exit(1)
-	}
+	ctx := ctrl.SetupSignalHandler()
 
-	if err = (&controller.IONOSCloudClusterIdentityReconciler{
-		ControllerContext: &context.ControllerContext{
-			Context:            goctx.Background(),
-			K8sClient:          mgr.GetClient(),
-			Scheme:             mgr.GetScheme(),
-			Logger:             ctrl.Log.WithName("IONOSCloudClusterIdentityReconciler"),
-			IONOSClientFactory: ionos.NewClientFactory(ionos.NewAPIClient),
-		},
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "IONOSCloudClusterIdentity")
+	if err = iccontroller.NewIonosCloudClusterReconciler(mgr).SetupWithManager(
+		ctx,
+		mgr,
+		controller.Options{MaxConcurrentReconciles: icClusterConcurrency},
+	); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "IonosCloudCluster")
+		os.Exit(1)
+	}
+	if err = iccontroller.NewIonosCloudMachineReconciler(mgr).SetupWithManager(
+		mgr,
+		controller.Options{MaxConcurrentReconciles: icMachineConcurrency},
+	); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "IonosCloudMachine")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
@@ -155,9 +119,25 @@ func main() {
 		os.Exit(1)
 	}
 
-	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	setupLog.Info("Starting manager")
+	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+// initFlags parses the command line flags.
+func initFlags() {
+	klog.InitFlags(nil)
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	flags.AddDiagnosticsOptions(pflag.CommandLine, &diagnosticOptions)
+	pflag.StringVar(&healthProbeAddr, "health-probe-bind-address", ":8081",
+		"The address the probe endpoint binds to.")
+	pflag.BoolVar(&enableLeaderElection, "leader-elect", false,
+		"Enable leader election for controller manager. "+
+			"Enabling this will ensure there is only one active controller manager.")
+	pflag.IntVar(&icClusterConcurrency, "ionoscloudcluster-concurrency", 1,
+		"Number of IonosCloudClusters to process simultaneously")
+	pflag.IntVar(&icMachineConcurrency, "ionoscloudmachine-concurrency", 1,
+		"Number of IonosCloudMachines to process simultaneously")
 }

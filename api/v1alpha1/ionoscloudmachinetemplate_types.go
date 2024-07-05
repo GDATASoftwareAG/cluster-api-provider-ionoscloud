@@ -1,5 +1,5 @@
 /*
-Copyright 2023.
+Copyright 2024 IONOS Cloud.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,36 +18,44 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 )
 
-// IONOSCloudMachineTemplateSpec defines the desired state of IONOSCloudMachineTemplate
-type IONOSCloudMachineTemplateSpec struct {
-	Template IONOSCloudMachineTemplateResource `json:"template"`
-}
-
-type IONOSCloudMachineTemplateResource struct {
-	Spec IONOSCloudMachineSpec `json:"spec"`
+// IonosCloudMachineTemplateSpec defines the desired state of IonosCloudMachineTemplate.
+type IonosCloudMachineTemplateSpec struct {
+	// Template is the IonosCloudMachineTemplateResource for the IonosCloudMachineTemplate.
+	Template IonosCloudMachineTemplateResource `json:"template"`
 }
 
 //+kubebuilder:object:root=true
 
-// IONOSCloudMachineTemplate is the Schema for the ionoscloudmachinetemplates API
-type IONOSCloudMachineTemplate struct {
+// IonosCloudMachineTemplate is the Schema for the ionoscloudmachinetemplates API.
+type IonosCloudMachineTemplate struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec IONOSCloudMachineTemplateSpec `json:"spec,omitempty"`
+	Spec IonosCloudMachineTemplateSpec `json:"spec,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// IONOSCloudMachineTemplateList contains a list of IONOSCloudMachineTemplate
-type IONOSCloudMachineTemplateList struct {
+// IonosCloudMachineTemplateList contains a list of IonosCloudMachineTemplate.
+type IonosCloudMachineTemplateList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []IONOSCloudMachineTemplate `json:"items"`
+	Items           []IonosCloudMachineTemplate `json:"items"`
+}
+
+// IonosCloudMachineTemplateResource defines the spec and metadata for IonosCloudMachineTemplate supported by capi.
+type IonosCloudMachineTemplateResource struct {
+	// Standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+	//+optional
+	ObjectMeta clusterv1.ObjectMeta `json:"metadata,omitempty"`
+	// Spec is the IonosCloudMachineSpec for the IonosCloudMachineTemplate.
+	Spec IonosCloudMachineSpec `json:"spec"`
 }
 
 func init() {
-	SchemeBuilder.Register(&IONOSCloudMachineTemplate{}, &IONOSCloudMachineTemplateList{})
+	objectTypes = append(objectTypes, &IonosCloudMachineTemplate{}, &IonosCloudMachineTemplateList{})
 }
