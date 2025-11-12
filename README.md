@@ -1,3 +1,6 @@
+> [!IMPORTANT]  
+> This project is replaced by https://github.com/ionos-cloud/cluster-api-provider-ionoscloud.
+
 # cluster-api-provider-ionoscloud
 Kubernetes-native declarative infrastructure for [IONOS Cloud](ionos_cloud).
 
